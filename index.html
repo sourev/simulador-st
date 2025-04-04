@@ -6,18 +6,37 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; background: #f5f7fa; color: #333; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 900px;
+      margin: auto;
+      background: #f5f7fa;
+      color: #333;
+    }
     h1 { text-align: center; color: #1d3557; }
     label { font-weight: bold; display: block; margin-top: 15px; }
-    input { width: 100%; padding: 10px; font-size: 16px; margin-top: 5px; }
-    button { padding: 10px; margin-top: 20px; width: 100%; background: #1d3557; color: white; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
-    #resultado { margin-top: 30px; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 8px #ddd; }
+    input {
+      width: 100%; padding: 10px;
+      font-size: 16px; margin-top: 5px;
+    }
+    button {
+      padding: 10px; margin-top: 20px; width: 100%;
+      background: #1d3557; color: white;
+      font-size: 16px; border: none; border-radius: 5px;
+      cursor: pointer;
+    }
+    #resultado {
+      margin-top: 30px; background: #fff;
+      padding: 20px; border-radius: 10px;
+      box-shadow: 0 0 8px #ddd;
+    }
     canvas { margin-top: 30px; }
   </style>
 </head>
 <body>
 
-  <h1>Simulador Jurídico<br>Reajuste Abusivo de Plano de Saúde</h1>
+  <h1>Simulador de Reajuste Abusivo<br>Plano de Saúde</h1>
 
   <label>Nome da Empresa:</label>
   <input type="text" id="empresa" placeholder="Ex: Clínica XYZ" />
@@ -28,7 +47,7 @@
   <label>Data do Último Pagamento:</label>
   <input type="month" id="dataFinal" />
 
-  <label>Valor do Último Pagamento (R$):</label>
+  <label>Valor da Última Mensalidade (R$):</label>
   <input type="number" id="valorAtual" placeholder="Ex: 4000" />
 
   <button onclick="simular()">Simular</button>
@@ -36,118 +55,125 @@
   <div id="resultado"></div>
   <canvas id="grafico"></canvas>
 
-  <script>
-    const reajustes = {
-      "2024-2025": 0.2096,
-      "2023-2024": 0.2379,
-      "2022-2023": 0.1925,
-      "2021-2022": 0.0902,
-      "2020-2021": 0.1256,
-      "2019-2020": 0.1318,
-      "2018-2019": 0.1576,
-      "2017-2018": 0.2089,
-      "2016-2017": 0.2112,
-      "2015-2016": 0.1649,
-      "2014-2015": 0.1729
-    };
+<script>
+const reajustesReais = {
+  "2024-2025": 0.2096,
+  "2023-2024": 0.2379,
+  "2022-2023": 0.1925,
+  "2021-2022": 0.0902,
+  "2020-2021": 0.1256,
+  "2019-2020": 0.1318,
+  "2018-2019": 0.1576,
+  "2017-2018": 0.2089,
+  "2016-2017": 0.2112,
+  "2015-2016": 0.1649,
+  "2014-2015": 0.1729
+};
 
-    const ans = {
-      "2024-2025": 0.0691,
-      "2023-2024": 0.0963,
-      "2022-2023": 0.155,
-      "2021-2022": -0.0819,
-      "2020-2021": 0.0814,
-      "2019-2020": 0.0735,
-      "2018-2019": 0.10,
-      "2017-2018": 0.1355,
-      "2016-2017": 0.1357,
-      "2015-2016": 0.1355,
-      "2014-2015": 0.0965
-    };
+const reajustesANS = {
+  "2024-2025": 0.0691,
+  "2023-2024": 0.0963,
+  "2022-2023": 0.155,
+  "2021-2022": -0.0819,
+  "2020-2021": 0.0814,
+  "2019-2020": 0.0735,
+  "2018-2019": 0.10,
+  "2017-2018": 0.1355,
+  "2016-2017": 0.1357,
+  "2015-2016": 0.1355,
+  "2014-2015": 0.0965
+};
 
-    function obterPeriodo(mesAno) {
-      const ano = parseInt(mesAno.split("-")[0]);
-      return `${ano}-${ano + 1}`;
-    }
+function obterPeriodo(mesAno) {
+  const ano = parseInt(mesAno.split("-")[0]);
+  return `${ano}-${ano + 1}`;
+}
 
-    function mesesEntre(inicio, fim) {
-      const resultado = [];
-      let atual = new Date(inicio + "-01");
-      const limite = new Date(fim + "-01");
-      while (atual <= limite) {
-        resultado.push(atual.toISOString().slice(0, 7));
-        atual.setMonth(atual.getMonth() + 1);
+function mesesEntre(inicio, fim) {
+  const resultado = [];
+  let atual = new Date(inicio + "-01");
+  const limite = new Date(fim + "-01");
+  while (atual <= limite) {
+    resultado.push(atual.toISOString().slice(0, 7));
+    atual.setMonth(atual.getMonth() + 1);
+  }
+  return resultado.reverse();
+}
+
+function simular() {
+  const dataInicio = document.getElementById("dataInicio").value;
+  const dataFinal = document.getElementById("dataFinal").value;
+  const valorAtual = parseFloat(document.getElementById("valorAtual").value);
+
+  if (!dataInicio || !dataFinal || !valorAtual) {
+    alert("Preencha todos os campos.");
+    return;
+  }
+
+  let meses = mesesEntre(dataInicio, dataFinal);
+  let valorReal = valorAtual;
+  let historico = [];
+
+  // REGRESSÃO: valor real mês a mês (retrocedendo)
+  for (let i = 0; i < meses.length; i++) {
+    const mes = meses[i];
+    const periodo = obterPeriodo(mes);
+    const rReal = reajustesReais[periodo] || 0;
+    const valorAnterior = valorReal / (1 + rReal);
+
+    historico.unshift({
+      mes: mes,
+      valorReal: valorReal,
+      reajusteReal: rReal,
+      valorAnterior: valorAnterior
+    });
+
+    valorReal = valorAnterior;
+  }
+
+  // PROGRESSÃO: valor devido ANS mês a mês (acumulando)
+  let valorBase = historico[0].valorAnterior;
+  let acumuladoANS = 0;
+  for (let i = 0; i < historico.length; i++) {
+    const periodo = obterPeriodo(historico[i].mes);
+    const rANS = reajustesANS[periodo] || 0;
+    acumuladoANS = (1 + acumuladoANS) * (1 + rANS) - 1;
+    historico[i].valorANS = valorBase * (1 + acumuladoANS);
+    historico[i].diferenca = historico[i].valorReal - historico[i].valorANS;
+  }
+
+  const totalPago = historico.reduce((acc, v) => acc + v.valorReal, 0);
+  const totalDevido = historico.reduce((acc, v) => acc + v.valorANS, 0);
+  const totalDif = totalPago - totalDevido;
+  const economia12 = historico[historico.length - 1]?.diferenca * 12 || 0;
+
+  document.getElementById("resultado").innerHTML = `
+    <h3>Resultado:</h3>
+    <p>Você pagou <strong>R$ ${totalDif.toFixed(2)}</strong> a mais nos últimos <strong>${historico.length}</strong> meses.</p>
+    <p>Se continuar assim, pagará <strong>R$ ${economia12.toFixed(2)}</strong> a mais nos próximos 12 meses.</p>
+  `;
+
+  const ctx = document.getElementById("grafico").getContext("2d");
+  if (window.meuGrafico) window.meuGrafico.destroy();
+  window.meuGrafico = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: ["Total Pago", "Valor Devido (ANS)", "Diferença Total"],
+      datasets: [{
+        label: "R$",
+        data: [totalPago, totalDevido, totalDif],
+        backgroundColor: ["#e74c3c", "#3498db", "#2ecc71"]
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
       }
-      return resultado.reverse();
     }
-
-    function simular() {
-      const dataInicio = document.getElementById("dataInicio").value;
-      const dataFinal = document.getElementById("dataFinal").value;
-      const valorAtual = parseFloat(document.getElementById("valorAtual").value);
-
-      if (!dataInicio || !dataFinal || !valorAtual) {
-        alert("Preencha todos os campos.");
-        return;
-      }
-
-      let meses = mesesEntre(dataInicio, dataFinal);
-      let valorReal = valorAtual;
-      let historico = [];
-
-      for (let i = 0; i < meses.length; i++) {
-        const mes = meses[i];
-        const periodo = obterPeriodo(mes);
-        const rPlano = reajustes[periodo] || 0;
-        const rANS = ans[periodo] || 0;
-
-        const valorAnterior = valorReal / (1 + rPlano);
-        const valorANS = valorAnterior * (1 + rANS);
-        const diff = valorReal - valorANS;
-
-        historico.push({
-          mes: mes,
-          pago: valorReal,
-          devido: valorANS,
-          dif: diff
-        });
-
-        valorReal = valorAnterior;
-      }
-
-      const totalPago = historico.reduce((a, b) => a + b.pago, 0);
-      const totalDevido = historico.reduce((a, b) => a + b.devido, 0);
-      const totalDif = totalPago - totalDevido;
-      const economia12 = historico[0]?.dif * 12 || 0;
-
-      document.getElementById("resultado").innerHTML = `
-        <h3>Resultado da Simulação:</h3>
-        <p>Você pagou <strong>R$ ${totalDif.toFixed(2)}</strong> a mais nos últimos <strong>${historico.length}</strong> meses.</p>
-        <p>Se continuar assim, pagará <strong>R$ ${economia12.toFixed(2)}</strong> a mais nos próximos 12 meses.</p>
-      `;
-
-      const ctx = document.getElementById("grafico").getContext("2d");
-      if (window.meuGrafico) window.meuGrafico.destroy();
-      window.meuGrafico = new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels: ["Total Pago", "Valor Devido (ANS)", "Diferença Total"],
-          datasets: [{
-            label: "R$",
-            data: [totalPago, totalDevido, totalDif],
-            backgroundColor: ["#d63031", "#0984e3", "#00b894"]
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y: { beginAtZero: true }
-          }
-        }
-      });
-    }
-  </script>
+  });
+}
+</script>
 
 </body>
 </html>
-
