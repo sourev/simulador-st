@@ -1,74 +1,72 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Simulador de Reajuste Abusivo</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
       background-color: #f4f7fb;
-      padding: 20px;
-      max-width: 800px;
-      margin: auto;
+      padding: 30px;
+      color: #1f2e4d;
     }
     h1 {
       text-align: center;
-      color: #1c2d4a;
+      color: #1f2e4d;
     }
-    label {
-      font-weight: bold;
-      margin-top: 10px;
+    form {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 20px;
     }
-    input, select {
+    input, button {
       width: 100%;
-      padding: 8px;
-      margin-bottom: 15px;
-    }
-    button {
-      background-color: #1c2d4a;
-      color: white;
       padding: 10px;
-      width: 100%;
-      border: none;
-      cursor: pointer;
+      margin-top: 10px;
+      font-size: 16px;
     }
-    .resultado {
-      background-color: #fff;
-      padding: 15px;
-      margin-top: 20px;
+    .result-box {
+      background: #fff;
+      padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      margin-top: 30px;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
     canvas {
-      margin-top: 30px;
+      max-width: 700px;
+      margin: 30px auto;
+      display: block;
     }
   </style>
 </head>
 <body>
   <h1>Simulador de Reajuste Abusivo<br>Plano de Saúde</h1>
 
-  <label>Nome da Empresa:</label>
-  <input id="empresa" placeholder="Ex: Clínica MMJ" />
+  <form id="form">
+    <label>Nome da Empresa:</label>
+    <input type="text" id="empresa" placeholder="Ex: Clínica MMJ" required>
 
-  <label>Data de Inclusão no Plano:</label>
-  <input id="inicio" type="month" />
+    <label>Data de Inclusão no Plano:</label>
+    <input type="month" id="dataInicio" required>
 
-  <label>Data do Último Pagamento:</label>
-  <input id="fim" type="month" />
+    <label>Data do Último Pagamento:</label>
+    <input type="month" id="dataFim" required>
 
-  <label>Valor da Última Mensalidade (R$):</label>
-  <input id="valorFinal" type="number" value="4000" />
+    <label>Valor da Última Mensalidade (R$):</label>
+    <input type="number" id="valorAtual" required>
 
-  <button onclick="simular()">Simular</button>
+    <button type="submit" style="background-color:#1f2e4d;color:white;">Simular</button>
+  </form>
 
-  <div class="resultado" id="resultado"></div>
-
+  <div id="resultado" class="result-box" style="display:none;"></div>
   <canvas id="grafico" height="100"></canvas>
 
   <script>
-    const reajustesANS = {
+    const indicesANS = {
       "2024-2025": 0.0691,
       "2023-2024": 0.0963,
       "2022-2023": 0.1550,
@@ -96,83 +94,58 @@
       "2000-2001": 0.0542
     };
 
-    function obterMeses(inicio, fim) {
-      const meses = [];
-      const data = new Date(inicio + "-01");
-      const fimData = new Date(fim + "-01");
-
-      while (data <= fimData) {
-        const mes = data.toISOString().slice(0,7);
-        meses.push(mes);
-        data.setMonth(data.getMonth() + 1);
-      }
-      return meses;
+    function obterIndiceAno(ano) {
+      const intervalo = Object.keys(indicesANS).find(i => i.includes(ano));
+      return indicesANS[intervalo] ?? 0.05;
     }
 
-    function obterPeriodo(mes) {
-      const ano = parseInt(mes.split("-")[0]);
-      return `${ano}-${ano + 1}`;
-    }
+    document.getElementById('form').addEventListener('submit', function(e){
+      e.preventDefault();
 
-    function simular() {
-      const inicio = document.getElementById("inicio").value;
-      const fim = document.getElementById("fim").value;
-      const valorFinal = parseFloat(document.getElementById("valorFinal").value);
+      const dataInicio = new Date(document.getElementById('dataInicio').value + "-01");
+      const dataFim = new Date(document.getElementById('dataFim').value + "-01");
+      const valorAtual = parseFloat(document.getElementById('valorAtual').value);
 
-      const meses = obterMeses(inicio, fim);
-      const totalMeses = meses.length;
+      let meses = [];
+      let pagos = [];
+      let ans = [];
 
-      // Cálculo do valor real pago mês a mês
-      const valoresReais = {};
-      let valorAtual = valorFinal;
-      for (let i = totalMeses - 1; i >= 0; i--) {
-        const mes = meses[i];
-        valoresReais[mes] = valorAtual;
-        const periodo = obterPeriodo(mes);
-        const reajuste = reajustesANS[periodo] || 0;
-        valorAtual /= (1 + reajuste);
+      const mesesTotais = Math.round((dataFim - dataInicio) / (1000 * 60 * 60 * 24 * 30)) + 1;
+
+      let valor = valorAtual;
+      for (let i = 0; i < mesesTotais; i++) {
+        const ref = new Date(dataFim.getFullYear(), dataFim.getMonth() - i, 1);
+        const anoRef = ref.getFullYear();
+        const key = Object.keys(indicesANS).find(k => k.includes(anoRef));
+        const indice = indicesANS[key] ?? 0.05;
+        valor = valor / (1 + indice); // Corrigindo ao contrário para simular o passado
+        meses.unshift(ref.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }));
+        pagos.unshift(valorAtual);
+        ans.unshift(valor);
       }
 
-      // Cálculo ANS (retroativo)
-      const valoresANS = {};
-      const mesMaisAntigo = meses[meses.length - 1];
-      let valorBase = valoresReais[mesMaisAntigo];
+      const totalPago = pagos.reduce((a, b) => a + b, 0);
+      const totalDevido = ans.reduce((a, b) => a + b, 0);
+      const diferenca = totalPago - totalDevido;
+      const diferencaMensal = valorAtual - ans[ans.length - 1];
+      const diferenca12Meses = diferencaMensal * 12;
 
-      for (let i = 0; i < meses.length; i++) {
-        const mes = meses[meses.length - 1 - i];
-        const periodo = obterPeriodo(mes);
-        const reajusteANS = reajustesANS[periodo] || 0;
-        if (i > 0) valorBase *= (1 + reajusteANS);
-        valoresANS[mes] = valorBase;
-      }
-
-      let pago = 0, devido = 0;
-      for (const mes of meses) {
-        pago += valoresReais[mes];
-        devido += valoresANS[mes];
-      }
-
-      const diff = pago - devido;
-
+      document.getElementById("resultado").style.display = "block";
       document.getElementById("resultado").innerHTML = `
-        <b>Resultado:</b><br>
-        Você pagou <b>R$ ${pago.toFixed(2)}</b> a mais nos últimos <b>${totalMeses}</b> meses.<br>
-        Se continuar assim, pagará <b>R$ ${(diff / totalMeses * 12).toFixed(2)}</b> a mais nos próximos 12 meses.
+        <h3>Resultado:</h3>
+        <p>Você pagou <strong>R$ ${diferenca.toFixed(2)}</strong> a mais nos últimos <strong>${mesesTotais}</strong> meses.</p>
+        <p>Se continuar assim, pagará <strong>R$ ${diferenca12Meses.toFixed(2)}</strong> a mais nos próximos 12 meses.</p>
       `;
 
-      gerarGrafico(pago, devido, diff);
-    }
-
-    function gerarGrafico(pago, devido, diff) {
-      const ctx = document.getElementById("grafico").getContext("2d");
-      if (window.myChart) window.myChart.destroy();
-      window.myChart = new Chart(ctx, {
-        type: "bar",
+      const ctx = document.getElementById('grafico').getContext('2d');
+      if (window.chartSimulador) window.chartSimulador.destroy();
+      window.chartSimulador = new Chart(ctx, {
+        type: 'bar',
         data: {
           labels: ["Total Pago", "Valor Devido (ANS)", "Diferença Total"],
           datasets: [{
             label: "Valores em R$",
-            data: [pago, devido, diff],
+            data: [totalPago, totalDevido, diferenca],
             backgroundColor: ["#e74c3c", "#3498db", "#2ecc71"]
           }]
         },
@@ -185,7 +158,7 @@
           }
         }
       });
-    }
+    });
   </script>
 </body>
 </html>
