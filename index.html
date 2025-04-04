@@ -1,219 +1,188 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simulador de Reajuste Indevido</title>
+  <meta charset="UTF-8">
+  <title>Simulador ST - Reajuste Plano de Saúde</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f5f7f9;
-      padding: 20px;
-      margin: 0;
+      margin: 40px;
+      background: #f8f9fa;
+    }
+    h1, h2 {
+      text-align: center;
     }
     .container {
       max-width: 900px;
       margin: auto;
       background: white;
       padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
-    }
-    h1, h2 {
-      text-align: center;
-      color: #1a202c;
-    }
-    .form-group {
-      margin-bottom: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
     label {
-      display: block;
       font-weight: bold;
+      display: block;
+      margin-top: 15px;
     }
     input {
+      padding: 8px;
       width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
+      margin-top: 5px;
     }
-    button {
-      background-color: #007BFF;
-      color: white;
-      border: none;
-      padding: 12px 20px;
-      cursor: pointer;
-      border-radius: 5px;
-      width: 100%;
-      font-size: 16px;
+    #logo {
+      display: block;
+      margin: 0 auto 30px auto;
+      max-width: 200px;
     }
-    .result-box {
+    #resultado {
       margin-top: 30px;
-      padding: 20px;
-      background: #f1f5f9;
-      border-radius: 8px;
+      font-size: 18px;
+      line-height: 1.5;
     }
     canvas {
-      margin-top: 20px;
+      margin-top: 40px;
     }
-    .actions {
-      margin-top: 20px;
-      display: flex;
-      gap: 10px;
-      justify-content: center;
+    .botoes {
+      text-align: center;
+      margin-top: 30px;
     }
-    .logo {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 20px;
+    .botoes button, .botoes a {
+      margin: 10px;
+      padding: 12px 20px;
+      background: #007bff;
+      color: white;
+      text-decoration: none;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
     }
-    .logo img {
-      height: 70px;
+    .botoes a {
+      display: inline-block;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="logo">
-      <img src="logo.png" alt="Logo Saúde Transparente">
+  <div class="container" id="conteudo">
+    <img src="logo.png" alt="Logo" id="logo">
+    <h1>Simulador ST – Reajuste de Plano de Saúde</h1>
+
+    <label>📅 Data de Entrada no Plano</label>
+    <input type="month" id="dataEntrada" value="2020-11">
+
+    <label>📅 Data do Último Pagamento</label>
+    <input type="month" id="dataUltimo" value="2025-02">
+
+    <label>💰 Valor da Última Mensalidade (R$)</label>
+    <input type="number" id="valorFinal" value="4000">
+
+    <div class="botoes">
+      <button onclick="simular()">Simular</button>
     </div>
 
-    <h1>Simulador de Reajuste Indevido de Plano de Saúde</h1>
+    <div id="resultado"></div>
+    <canvas id="grafico" width="800" height="400"></canvas>
 
-    <div class="form-group">
-      <label>Data de Entrada no Plano:</label>
-      <input type="month" id="entrada" />
-    </div>
-
-    <div class="form-group">
-      <label>Data do Último Pagamento:</label>
-      <input type="month" id="fim" />
-    </div>
-
-    <div class="form-group">
-      <label>Valor da Última Mensalidade (R$):</label>
-      <input type="number" id="mensalidade" placeholder="Ex: 4000" />
-    </div>
-
-    <button onclick="simular()">Simular</button>
-
-    <div class="result-box" id="resultado" style="display:none;">
-      <h2>Resultado da Simulação</h2>
-      <p id="textoResultado"></p>
-      <canvas id="grafico"></canvas>
-
-      <div class="actions">
-        <button onclick="exportarPDF()">📄 Exportar PDF</button>
-        <a id="btnZap" href="#" target="_blank">
-          <button style="background-color: #25D366;">📲 Compartilhar WhatsApp</button>
-        </a>
-      </div>
+    <div class="botoes">
+      <button onclick="exportarPDF()">📄 Exportar em PDF</button>
+      <a id="btnWhatsApp" target="_blank">📲 Enviar no WhatsApp</a>
     </div>
   </div>
 
   <script>
-    const indiceANS = 0.0691;
-    const reajusteReal = 0.18;
-
-    function gerarMeses(inicio, fim) {
-      const dataInicio = new Date(inicio);
-      const dataFim = new Date(fim);
-      const datas = [];
-
-      while (dataInicio <= dataFim) {
-        const mes = dataInicio.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-        datas.push(mes);
-        dataInicio.setMonth(dataInicio.getMonth() + 1);
-      }
-
-      return datas;
-    }
-
     function simular() {
-      const entrada = document.getElementById('entrada').value;
-      const fim = document.getElementById('fim').value;
-      const ultimaMensalidade = parseFloat(document.getElementById('mensalidade').value);
+      const entrada = new Date(document.getElementById("dataEntrada").value + "-01");
+      const fim = new Date(document.getElementById("dataUltimo").value + "-01");
+      const valorFinal = parseFloat(document.getElementById("valorFinal").value);
+      const reajusteReal = 0.18;
 
-      if (!entrada || !fim || !ultimaMensalidade) {
-        alert("Preencha todos os campos!");
-        return;
-      }
+      const indicesANS = {
+        2020: 0.0814,
+        2021: -0.0819,
+        2022: 0.1550,
+        2023: 0.0963,
+        2024: 0.0691
+      };
 
-      const meses = gerarMeses(entrada, fim);
+      let labels = [];
       let valoresPagos = [];
-      let valorAtual = ultimaMensalidade;
-
-      for (let i = meses.length - 1; i >= 0; i--) {
-        valoresPagos[i] = parseFloat(valorAtual.toFixed(2));
-        if (i > 0 && meses[i - 1].includes("out")) {
-          valorAtual = valorAtual / (1 + reajusteReal);
-        }
-      }
-
       let valoresANS = [];
-      let valorInicialANS = valoresPagos[0];
-      let valorANSAtual = valorInicialANS;
 
-      for (let i = 0; i < meses.length; i++) {
-        valoresANS[i] = parseFloat(valorANSAtual.toFixed(2));
-        if (meses[i].includes("out")) {
-          valorANSAtual *= (1 + indiceANS);
+      let meses = 0;
+      let totalPago = 0;
+      let totalCorreto = 0;
+
+      // Valor inicial (reverso do reajuste real)
+      const anosDecorridos = (fim.getFullYear() - entrada.getFullYear()) + (fim.getMonth() - entrada.getMonth()) / 12;
+      let valorInicial = valorFinal / Math.pow(1 + reajusteReal, anosDecorridos);
+
+      let valorPago = valorInicial;
+      let valorCorreto = valorInicial;
+
+      for (let d = new Date(entrada); d <= fim; d.setMonth(d.getMonth() + 1)) {
+        let label = d.toLocaleDateString("pt-BR", { year: 'numeric', month: 'short' });
+        labels.push(label);
+
+        valoresPagos.push(valorPago);
+        valoresANS.push(valorCorreto);
+
+        totalPago += valorPago;
+        totalCorreto += valorCorreto;
+
+        // Aplica reajuste ANUAL todo mês de outubro
+        if (d.getMonth() === 9) {
+          let ano = d.getFullYear();
+          let indiceANS = indicesANS[ano] !== undefined ? indicesANS[ano] : 0.07;
+
+          valorCorreto *= (1 + indiceANS);
+          valorPago *= (1 + reajusteReal);
         }
+
+        meses++;
       }
 
-      const totalPago = valoresPagos.reduce((a, b) => a + b, 0);
-      const totalANS = valoresANS.reduce((a, b) => a + b, 0);
-      const diferenca = totalPago - totalANS;
+      const diferenca = totalPago - totalCorreto;
+      const mediaMensalExcedente = diferenca / meses;
+      const futuro12 = mediaMensalExcedente * 12;
 
-      const proximo12Pagos = valoresPagos[valoresPagos.length - 1] * 12;
-      const proximo12ANS = valoresANS[valoresANS.length - 1] * 12;
-      const projecaoDiferenca = proximo12Pagos - proximo12ANS;
+      const texto = `
+        <h2>📊 Resultado da Simulação</h2>
+        <p>Você pagou <strong>R$ ${diferenca.toFixed(2).replace('.', ',')}</strong> a mais nos últimos ${meses} meses.</p>
+        <p>Se continuar assim, pagará <strong>R$ ${futuro12.toFixed(2).replace('.', ',')}</strong> a mais nos próximos 12 meses.</p>
+      `;
+      document.getElementById("resultado").innerHTML = texto;
 
-      document.getElementById('textoResultado').innerHTML =
-        `<strong>Você pagou R$ ${diferenca.toFixed(2).replace('.', ',')}</strong> a mais nos últimos <strong>${meses.length}</strong> meses.<br>` +
-        `Se continuar assim, pagará <strong>R$ ${projecaoDiferenca.toFixed(2).replace('.', ',')}</strong> a mais nos próximos 12 meses.`;
+      atualizarLinkWhatsApp(texto.replace(/<[^>]*>/g, ''));
 
-      document.getElementById('resultado').style.display = 'block';
-
-      desenharGrafico(meses, valoresPagos, valoresANS);
-
-      const zapText = `Você pagou R$ ${diferenca.toFixed(2)} a mais no seu plano de saúde. Simule aqui: https://sourev.github.io/simulador-st/`;
-      document.getElementById('btnZap').href = `https://wa.me/?text=${encodeURIComponent(zapText)}`;
-    }
-
-    let chart;
-
-    function desenharGrafico(labels, pagos, ans) {
-      const ctx = document.getElementById('grafico').getContext('2d');
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: 'line',
+      // GRAFICO
+      const ctx = document.getElementById("grafico").getContext("2d");
+      if (window.graficoSimulacao) window.graficoSimulacao.destroy();
+      window.graficoSimulacao = new Chart(ctx, {
+        type: "line",
         data: {
           labels: labels,
           datasets: [
             {
-              label: 'Valor Pago',
-              data: pagos,
-              borderColor: 'red',
-              fill: false,
-              tension: 0.2
+              label: "Valor Pago",
+              data: valoresPagos,
+              borderColor: "#dc3545",
+              fill: false
             },
             {
-              label: 'Valor Devido pela ANS',
-              data: ans,
-              borderColor: 'green',
-              fill: false,
-              tension: 0.2
+              label: "Valor Correto (ANS)",
+              data: valoresANS,
+              borderColor: "#28a745",
+              fill: false
             }
           ]
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: {
-              display: true,
-              position: 'top'
+          scales: {
+            y: {
+              beginAtZero: false
             }
           }
         }
@@ -222,15 +191,22 @@
 
     function exportarPDF() {
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.text("Simulação de Reajuste Indevido de Plano de Saúde", 10, 10);
-      doc.html(document.querySelector("#resultado"), {
-        callback: function (doc) {
-          doc.save("simulacao-plano-saude.pdf");
-        },
-        x: 10,
-        y: 20
+      const doc = new jsPDF("p", "mm", "a4");
+
+      html2canvas(document.getElementById("conteudo")).then(canvas => {
+        const imgData = canvas.toDataURL("image/png");
+        const imgProps = doc.getImageProperties(imgData);
+        const pdfWidth = doc.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+        doc.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+        doc.save("simulacao-plano-saude.pdf");
       });
+    }
+
+    function atualizarLinkWhatsApp(texto) {
+      const link = "https://wa.me/?text=" + encodeURIComponent(texto);
+      document.getElementById("btnWhatsApp").href = link;
     }
   </script>
 </body>
