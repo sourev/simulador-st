@@ -3,71 +3,107 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simulador ST - Reajuste Saúde</title>
+  <title>Simulador ST</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 30px;
-      background-color: #f9f9f9;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f9f9f9;
     }
+
+    #logo-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    #logo {
+      max-width: 200px;
+      display: inline-block;
+    }
+
     h1 {
+      text-align: center;
       color: #2c3e50;
     }
+
     label {
-      display: block;
-      margin: 12px 0 4px;
+      font-weight: bold;
     }
+
     input {
-      padding: 8px;
-      width: 300px;
+      padding: 5px;
+      margin-bottom: 10px;
+      width: 100%;
+      max-width: 300px;
+      display: block;
     }
+
     button {
-      margin-top: 20px;
       padding: 10px 20px;
-      background-color: #2ecc71;
+      margin-top: 10px;
+      background: #3498db;
       color: white;
       border: none;
       cursor: pointer;
     }
-    #resultado {
+
+    .resultado {
       margin-top: 30px;
-      padding: 20px;
-      background-color: #ecf0f1;
+      padding: 15px;
+      background: #ecf0f1;
+      border-radius: 5px;
     }
-    canvas {
+
+    #grafico {
+      max-width: 100%;
+      margin-top: 30px;
+    }
+
+    .btn-group {
       margin-top: 20px;
     }
-    #logo {
-      max-width: 200px;
-      margin-bottom: 20px;
+
+    .btn-group button {
+      margin-right: 10px;
     }
   </style>
 </head>
 <body>
-  <img id="logo" src="logo.png" alt="Logo">
-  <h1>Simulador ST - Reajuste de Planos de Saúde</h1>
 
-  <label for="inicio">📅 Data de Inclusão no Plano:</label>
-  <input type="month" id="inicio" value="2020-11">
+  <div id="logo-container">
+    <img id="logo" src="logo.png" alt="Logo">
+  </div>
 
-  <label for="fim">📅 Data do Último Pagamento:</label>
-  <input type="month" id="fim" value="2025-02">
+  <h1>Simulador ST</h1>
 
-  <label for="valor">💰 Valor da Última Mensalidade:</label>
-  <input type="number" id="valor" value="4000">
+  <form id="formulario">
+    <label>Data de Entrada no Plano:</label>
+    <input type="month" id="entrada" required />
 
-  <br>
-  <button onclick="simular()">Simular</button>
-  <button onclick="exportarPDF()">📤 Exportar em PDF</button>
+    <label>Data do Último Pagamento:</label>
+    <input type="month" id="ultimo" required />
 
-  <div id="resultado"></div>
+    <label>Valor da Última Mensalidade (R$):</label>
+    <input type="number" id="valor" step="0.01" required />
 
-  <canvas id="grafico" width="600" height="300"></canvas>
+    <button type="submit">Simular</button>
+  </form>
+
+  <div class="resultado" id="resultado" style="display:none;"></div>
+
+  <canvas id="grafico" style="display:none;"></canvas>
+
+  <div class="btn-group" id="botoes" style="display:none;">
+    <button onclick="exportarPDF()">📤 Exportar PDF</button>
+    <button onclick="compartilharWhatsApp()">📲 Compartilhar WhatsApp</button>
+  </div>
 
   <script>
-    const ansIndices = {
+    const indiceANS = {
       2024: 6.91,
       2023: 9.63,
       2022: 15.50,
@@ -95,102 +131,120 @@
       2000: 5.42
     };
 
-    function simular() {
-      const inicio = new Date(document.getElementById('inicio').value + "-01");
-      const fim = new Date(document.getElementById('fim').value + "-01");
-      const valorFinal = parseFloat(document.getElementById('valor').value);
+    document.getElementById("formulario").addEventListener("submit", function (e) {
+      e.preventDefault();
 
-      let atual = new Date(fim);
-      let pago = 0;
-      let devido = 0;
-      let meses = 0;
+      const entrada = new Date(document.getElementById("entrada").value);
+      const ultimo = new Date(document.getElementById("ultimo").value);
+      const valorFinal = parseFloat(document.getElementById("valor").value);
+      const reajustePlano = 18; // Fixo
 
-      let valoresPagos = [];
-      let valoresDevidos = [];
-      let labels = [];
+      const meses = [];
+      const valoresPagos = [];
+      const valoresANS = [];
 
-      let valorMensal = valorFinal;
+      let valorPago = valorFinal;
 
-      // CALCULAR PAGOS DE TRÁS PRA FRENTE
-      while (atual >= inicio) {
-        let ano = atual.getFullYear();
-        if (atual.getMonth() === 9 && atual < fim) { // Outubro
-          valorMensal /= (1 + 0.18); // Reajuste real de 18%
+      // Regressivo valorPago
+      const dataAtual = new Date(ultimo);
+      while (dataAtual >= entrada) {
+        const ano = dataAtual.getFullYear();
+        const mes = dataAtual.getMonth();
+
+        meses.unshift(`${("0" + (mes + 1)).slice(-2)}/${ano}`);
+        valoresPagos.unshift(valorPago.toFixed(2));
+
+        // Reajuste plano (anual em outubro)
+        if (mes === 9) {
+          valorPago = valorPago / (1 + reajustePlano / 100);
         }
-        valoresPagos.unshift(valorMensal);
-        pago += valorMensal;
-        meses++;
-        atual.setMonth(atual.getMonth() - 1);
+
+        dataAtual.setMonth(dataAtual.getMonth() - 1);
       }
 
-      // CALCULAR DEVIDOS DE FRENTE PRA TRÁS
-      atual = new Date(inicio);
-      let valorDevidoMes = valoresPagos[0];
+      // Progressivo valorANS
+      let valorANS = valorPago;
+      const dataANS = new Date(entrada);
+      while (dataANS <= ultimo) {
+        const ano = dataANS.getFullYear();
+        const mes = dataANS.getMonth();
 
-      while (atual <= fim) {
-        let ano = atual.getFullYear();
-        if (atual.getMonth() === 9 && atual > inicio) {
-          let indice = ansIndices[ano] ?? 7.0;
-          valorDevidoMes *= (1 + (indice / 100));
+        valoresANS.push(valorANS.toFixed(2));
+
+        // Reajuste ANS em outubro
+        if (mes === 9) {
+          const reajuste = indiceANS[ano] ?? 7;
+          valorANS = valorANS * (1 + reajuste / 100);
         }
-        valoresDevidos.push(valorDevidoMes);
-        devido += valorDevidoMes;
 
-        labels.push(`${atual.toLocaleString('pt-BR', { month: 'short' })}/${ano}`);
-        atual.setMonth(atual.getMonth() + 1);
+        dataANS.setMonth(dataANS.getMonth() + 1);
       }
 
-      const diferenca = pago - devido;
-      const mediaUltimoAno = valoresPagos.slice(-12).reduce((a, b) => a + b, 0) - 
-                             valoresDevidos.slice(-12).reduce((a, b) => a + b, 0);
+      // Cálculos
+      const mesesTotal = valoresPagos.length;
+      const totalPago = valoresPagos.reduce((a, b) => a + parseFloat(b), 0);
+      const totalDevido = valoresANS.reduce((a, b) => a + parseFloat(b), 0);
+      const diferenca = totalPago - totalDevido;
 
-      document.getElementById('resultado').innerHTML = `
-        <h2>Resultado da Simulação</h2>
-        <p>Você pagou <strong>R$ ${diferenca.toFixed(2)}</strong> a mais nos últimos ${meses} meses.</p>
-        <p>Se continuar assim, pagará <strong>R$ ${mediaUltimoAno.toFixed(2)}</strong> a mais nos próximos 12 meses.</p>
+      const projecaoMensal = (parseFloat(valoresPagos.at(-1)) - parseFloat(valoresANS.at(-1)));
+      const projecaoAnual = projecaoMensal * 12;
+
+      // Mostrar resultado
+      const resultado = document.getElementById("resultado");
+      resultado.style.display = "block";
+      resultado.innerHTML = `
+        <h3>Resultado da Simulação</h3>
+        <p>Você pagou <strong>R$ ${diferenca.toFixed(2)}</strong> a mais nos últimos <strong>${mesesTotal}</strong> meses.</p>
+        <p>Se continuar assim, pagará <strong>R$ ${projecaoAnual.toFixed(2)}</strong> a mais nos próximos 12 meses.</p>
       `;
 
-      gerarGrafico(labels, valoresPagos, valoresDevidos);
-    }
+      // Gráfico
+      const grafico = document.getElementById("grafico");
+      grafico.style.display = "block";
 
-    function gerarGrafico(labels, pagos, devidos) {
-      const ctx = document.getElementById('grafico').getContext('2d');
-      if (window.chart) window.chart.destroy();
-      window.chart = new Chart(ctx, {
-        type: 'bar',
+      const ctx = grafico.getContext("2d");
+      if (window.meuGrafico) window.meuGrafico.destroy(); // Apagar anterior
+
+      window.meuGrafico = new Chart(ctx, {
+        type: "line",
         data: {
-          labels,
+          labels: meses,
           datasets: [
             {
-              label: 'Pago',
-              backgroundColor: 'rgba(231, 76, 60, 0.7)',
-              data: pagos
+              label: "Valor Pago",
+              data: valoresPagos,
+              borderColor: "red",
+              fill: false,
             },
             {
-              label: 'Devido (ANS)',
-              backgroundColor: 'rgba(46, 204, 113, 0.7)',
-              data: devidos
-            }
-          ]
+              label: "Valor Devido pela ANS",
+              data: valoresANS,
+              borderColor: "green",
+              fill: false,
+            },
+          ],
         },
         options: {
           responsive: true,
           plugins: {
-            legend: {
-              position: 'top'
-            },
-            title: {
-              display: true,
-              text: 'Comparativo Mensal: Valor Pago x Valor Devido (ANS)'
-            }
+            legend: { position: "top" },
+            title: { display: true, text: "Comparativo: Valor Pago vs Valor Devido (ANS)" }
           }
         }
       });
-    }
+
+      document.getElementById("botoes").style.display = "block";
+    });
 
     function exportarPDF() {
       const element = document.body;
-      html2pdf().from(element).save('simulacao-reajuste.pdf');
+      html2pdf().from(element).save("simulacao.pdf");
+    }
+
+    function compartilharWhatsApp() {
+      const texto = document.getElementById("resultado").innerText;
+      const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+      window.open(url, "_blank");
     }
   </script>
 </body>
