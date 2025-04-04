@@ -3,198 +3,195 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simulador ST - Reajustes ANS</title>
+  <title>Simulador ST - Reajuste Saúde</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 20px;
-      max-width: 900px;
-      margin: auto;
-    }
-    header {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-    header img {
-      height: 60px;
+      margin: 30px;
+      background-color: #f9f9f9;
     }
     h1 {
       color: #2c3e50;
     }
-    input, button {
-      padding: 10px;
-      margin: 5px 0;
-      width: 100%;
-      box-sizing: border-box;
+    label {
+      display: block;
+      margin: 12px 0 4px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    table, th, td {
-      border: 1px solid #ccc;
-    }
-    th {
-      background: #f7f7f7;
-    }
-    td, th {
+    input {
       padding: 8px;
-      text-align: center;
+      width: 300px;
     }
-    .resultado {
-      background: #e8f7e4;
-      padding: 15px;
-      margin: 20px 0;
-      border-left: 5px solid #2ecc71;
-      font-size: 18px;
-    }
-    .grafico-container {
-      margin-top: 30px;
-    }
-    .export-btn {
+    button {
       margin-top: 20px;
-      background: #3498db;
+      padding: 10px 20px;
+      background-color: #2ecc71;
       color: white;
       border: none;
       cursor: pointer;
     }
+    #resultado {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: #ecf0f1;
+    }
+    canvas {
+      margin-top: 20px;
+    }
+    #logo {
+      max-width: 200px;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
+  <img id="logo" src="logo.png" alt="Logo">
+  <h1>Simulador ST - Reajuste de Planos de Saúde</h1>
 
-<header>
-  <img src="logo.png" alt="Logo" />
-  <h1>Simulador de Reajustes - ST</h1>
-</header>
+  <label for="inicio">📅 Data de Inclusão no Plano:</label>
+  <input type="month" id="inicio" value="2020-11">
 
-<div class="resultado" id="resultadoFinal">
-  <strong>Resultado da Simulação</strong><br />
-  Você pagou <strong>R$ 25.540,81</strong> a mais nos últimos <strong>51 meses</strong>.<br />
-  Se continuar assim, pagará <strong>R$ 17.354,28</strong> a mais nos próximos 12 meses.
-</div>
+  <label for="fim">📅 Data do Último Pagamento:</label>
+  <input type="month" id="fim" value="2025-02">
 
-<table>
-  <thead>
-    <tr>
-      <th>Mês/Ano</th>
-      <th>Valor Pago (18%)</th>
-      <th>Valor ANS</th>
-      <th>Diferença</th>
-    </tr>
-  </thead>
-  <tbody id="tabelaResultados">
-    <!-- Linhas geradas via JS -->
-  </tbody>
-</table>
+  <label for="valor">💰 Valor da Última Mensalidade:</label>
+  <input type="number" id="valor" value="4000">
 
-<div class="grafico-container">
-  <canvas id="graficoComparativo" width="800" height="400"></canvas>
-</div>
+  <br>
+  <button onclick="simular()">Simular</button>
+  <button onclick="exportarPDF()">📤 Exportar em PDF</button>
 
-<button class="export-btn" onclick="exportarPDF()">📄 Exportar Simulação em PDF</button>
+  <div id="resultado"></div>
 
-<script>
-  const mesesSimulados = 51;
-  const valorInicial = 2054.79;
-  const reajustePlano = 0.18;
-  const reajustesANS = {
-    2020: 0.0814,
-    2021: -0.0819,
-    2022: 0.1550,
-    2023: 0.0963,
-    2024: 0.0691
-  };
+  <canvas id="grafico" width="600" height="300"></canvas>
 
-  function aplicarReajusteAnual(valor, percentual) {
-    return valor * (1 + percentual);
-  }
+  <script>
+    const ansIndices = {
+      2024: 6.91,
+      2023: 9.63,
+      2022: 15.50,
+      2021: -8.19,
+      2020: 8.14,
+      2019: 7.35,
+      2018: 10.00,
+      2017: 13.55,
+      2016: 13.57,
+      2015: 13.55,
+      2014: 9.65,
+      2013: 9.04,
+      2012: 7.93,
+      2011: 7.69,
+      2010: 6.73,
+      2009: 6.76,
+      2008: 5.48,
+      2007: 5.76,
+      2006: 8.89,
+      2005: 11.69,
+      2004: 11.75,
+      2003: 9.27,
+      2002: 7.69,
+      2001: 8.71,
+      2000: 5.42
+    };
 
-  let pagos = [], ans = [], diferencas = [], meses = [];
-  let valorPago = valorInicial;
-  let valorANS = valorInicial;
-  const startDate = new Date(2020, 10); // novembro 2020
+    function simular() {
+      const inicio = new Date(document.getElementById('inicio').value + "-01");
+      const fim = new Date(document.getElementById('fim').value + "-01");
+      const valorFinal = parseFloat(document.getElementById('valor').value);
 
-  for (let i = 0; i < mesesSimulados; i++) {
-    const atual = new Date(startDate);
-    atual.setMonth(atual.getMonth() + i);
-    const ano = atual.getFullYear();
-    const mes = atual.getMonth();
-    const rotulo = atual.toLocaleDateString('pt-BR', { year: 'numeric', month: 'short' });
+      let atual = new Date(fim);
+      let pago = 0;
+      let devido = 0;
+      let meses = 0;
 
-    // Reajuste do plano: novembro
-    if (mes === 10 && i !== 0) {
-      valorPago = aplicarReajusteAnual(valorPago, reajustePlano);
-    }
+      let valoresPagos = [];
+      let valoresDevidos = [];
+      let labels = [];
 
-    // Reajuste da ANS: outubro
-    if (mes === 9 && reajustesANS[ano] !== undefined && i !== 0) {
-      valorANS = aplicarReajusteAnual(valorANS, reajustesANS[ano]);
-    }
+      let valorMensal = valorFinal;
 
-    const diferenca = valorPago - valorANS;
-
-    pagos.push(valorPago);
-    ans.push(valorANS);
-    diferencas.push(diferenca);
-    meses.push(rotulo);
-
-    // Preencher tabela
-    const row = `
-      <tr>
-        <td>${rotulo}</td>
-        <td>R$ ${valorPago.toFixed(2)}</td>
-        <td>R$ ${valorANS.toFixed(2)}</td>
-        <td>R$ ${diferenca.toFixed(2)}</td>
-      </tr>`;
-    document.getElementById("tabelaResultados").innerHTML += row;
-  }
-
-  const ctx = document.getElementById('graficoComparativo').getContext('2d');
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: meses,
-      datasets: [
-        {
-          label: 'Valor Pago (18%)',
-          data: pagos,
-          borderColor: '#e74c3c',
-          backgroundColor: 'transparent',
-        },
-        {
-          label: 'Valor ANS',
-          data: ans,
-          borderColor: '#2ecc71',
-          backgroundColor: 'transparent',
+      // CALCULAR PAGOS DE TRÁS PRA FRENTE
+      while (atual >= inicio) {
+        let ano = atual.getFullYear();
+        if (atual.getMonth() === 9 && atual < fim) { // Outubro
+          valorMensal /= (1 + 0.18); // Reajuste real de 18%
         }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'top' },
-        title: {
-          display: true,
-          text: 'Comparativo de Valores Mensais'
-        }
+        valoresPagos.unshift(valorMensal);
+        pago += valorMensal;
+        meses++;
+        atual.setMonth(atual.getMonth() - 1);
       }
+
+      // CALCULAR DEVIDOS DE FRENTE PRA TRÁS
+      atual = new Date(inicio);
+      let valorDevidoMes = valoresPagos[0];
+
+      while (atual <= fim) {
+        let ano = atual.getFullYear();
+        if (atual.getMonth() === 9 && atual > inicio) {
+          let indice = ansIndices[ano] ?? 7.0;
+          valorDevidoMes *= (1 + (indice / 100));
+        }
+        valoresDevidos.push(valorDevidoMes);
+        devido += valorDevidoMes;
+
+        labels.push(`${atual.toLocaleString('pt-BR', { month: 'short' })}/${ano}`);
+        atual.setMonth(atual.getMonth() + 1);
+      }
+
+      const diferenca = pago - devido;
+      const mediaUltimoAno = valoresPagos.slice(-12).reduce((a, b) => a + b, 0) - 
+                             valoresDevidos.slice(-12).reduce((a, b) => a + b, 0);
+
+      document.getElementById('resultado').innerHTML = `
+        <h2>Resultado da Simulação</h2>
+        <p>Você pagou <strong>R$ ${diferenca.toFixed(2)}</strong> a mais nos últimos ${meses} meses.</p>
+        <p>Se continuar assim, pagará <strong>R$ ${mediaUltimoAno.toFixed(2)}</strong> a mais nos próximos 12 meses.</p>
+      `;
+
+      gerarGrafico(labels, valoresPagos, valoresDevidos);
     }
-  });
 
-  function exportarPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.text("Simulação de Reajuste de Plano de Saúde", 10, 10);
-    doc.text("Você pagou R$ 25.540,81 a mais nos últimos 51 meses.", 10, 20);
-    doc.text("Se continuar assim, pagará R$ 17.354,28 a mais nos próximos 12 meses.", 10, 30);
-    doc.addImage(document.querySelector('canvas'), 'PNG', 10, 40, 180, 80);
-    doc.save("simulacao.pdf");
-  }
-</script>
+    function gerarGrafico(labels, pagos, devidos) {
+      const ctx = document.getElementById('grafico').getContext('2d');
+      if (window.chart) window.chart.destroy();
+      window.chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Pago',
+              backgroundColor: 'rgba(231, 76, 60, 0.7)',
+              data: pagos
+            },
+            {
+              label: 'Devido (ANS)',
+              backgroundColor: 'rgba(46, 204, 113, 0.7)',
+              data: devidos
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top'
+            },
+            title: {
+              display: true,
+              text: 'Comparativo Mensal: Valor Pago x Valor Devido (ANS)'
+            }
+          }
+        }
+      });
+    }
 
+    function exportarPDF() {
+      const element = document.body;
+      html2pdf().from(element).save('simulacao-reajuste.pdf');
+    }
+  </script>
 </body>
 </html>
