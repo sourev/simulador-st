@@ -3,209 +3,172 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simulador de Reajuste Abusivo</title>
+  <title>Simulador de Reajuste Indevido - Sourev</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f5f7fa;
-      color: #2c3e50;
+      background: #f5f5f5;
       padding: 20px;
-      text-align: center;
     }
-
-    .container {
-      max-width: 700px;
-      margin: 0 auto;
-      background-color: white;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    .logo {
+      max-width: 200px;
+      margin-bottom: 20px;
     }
-
-    h1 {
-      font-size: 24px;
-      margin-bottom: 10px;
+    .form-section {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
     }
-
-    img.logo {
-      max-width: 180px;
-      margin-bottom: 10px;
-    }
-
-    input, select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 6px;
-      margin-bottom: 16px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-    }
-
-    button {
-      background-color: #1f3a67;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    #resultado {
+    .result {
       margin-top: 30px;
-      font-size: 18px;
     }
-
-    canvas {
-      margin-top: 20px;
-    }
-
-    .btn-group {
-      margin-top: 20px;
-    }
-
-    .btn-group button {
-      margin: 5px;
+    .btn-whatsapp {
+      background-color: #25D366;
+      color: white;
     }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <img src="logo-saude.png" alt="Logo Saúde Transparente" class="logo"/>
-  <h1>Simulador de Reajuste Abusivo <br>Plano de Saúde</h1>
+  <div class="container">
+    <img src="logo.png" alt="Logo Sourev" class="logo"/>
 
-  <form id="simulador-form">
-    <input type="text" id="empresa" placeholder="Nome da Empresa" required />
-    <label>Data de Inclusão no Plano:</label>
-    <input type="month" id="dataInclusao" required />
-    <label>Data do Último Pagamento:</label>
-    <input type="month" id="dataUltimoPagamento" required />
-    <label>Valor da Última Mensalidade (R$):</label>
-    <input type="number" id="valorMensal" required />
+    <div class="form-section">
+      <h3>Simulador de Reajuste Indevido de Plano de Saúde</h3>
+      <form id="simuladorForm">
+        <div class="row">
+          <div class="col-md-4">
+            <label>Data de Inclusão no Plano</label>
+            <input type="month" class="form-control" id="dataInclusao" required>
+          </div>
+          <div class="col-md-4">
+            <label>Data do Último Pagamento</label>
+            <input type="month" class="form-control" id="dataUltimoPagamento" required>
+          </div>
+          <div class="col-md-4">
+            <label>Valor da Última Mensalidade (R$)</label>
+            <input type="number" class="form-control" id="valorMensalidade" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Simular</button>
+      </form>
+    </div>
 
-    <button type="submit">Simular</button>
-  </form>
+    <div class="result" id="resultadoSimulacao" style="display: none;">
+      <h4 class="mt-4">Resultado da Simulação</h4>
+      <p id="textoResumo"></p>
+      <canvas id="graficoComparativo" height="100"></canvas>
 
-  <div id="resultado"></div>
-  <canvas id="grafico" width="400" height="200"></canvas>
-
-  <div class="btn-group">
-    <button onclick="gerarPDF()">📄 Exportar PDF</button>
-    <button onclick="compartilharWhatsApp()">📲 Compartilhar WhatsApp</button>
+      <div class="mt-4">
+        <button onclick="gerarPDF()" class="btn btn-outline-secondary">📤 Exportar PDF</button>
+        <a id="linkWhatsapp" target="_blank" class="btn btn-whatsapp">📲 Compartilhar no WhatsApp</a>
+      </div>
+    </div>
   </div>
-</div>
 
-<script>
-  const ansIndices = {
-    2024: 6.91,
-    2023: 9.63,
-    2022: 15.5,
-    2021: -8.19,
-    2020: 8.14,
-    2019: 7.35,
-    2018: 10,
-    2017: 13.55,
-    2016: 13.57,
-    2015: 13.55,
-    2014: 9.65,
-    2013: 9.04,
-    2012: 7.93,
-    2011: 7.69,
-    2010: 6.73
-  };
+  <script>
+    const indicesANS = {
+      "2024": 6.91,
+      "2023": 9.63,
+      "2022": 15.50,
+      "2021": -8.19,
+      "2020": 8.14,
+      "2019": 7.35,
+      "2018": 10.00,
+      "2017": 13.55,
+      "2016": 13.57,
+      "2015": 13.55,
+      "2014": 9.65,
+      "2013": 9.04,
+      "2012": 7.93,
+      "2011": 7.69,
+      "2010": 6.73
+    };
 
-  document.getElementById("simulador-form").addEventListener("submit", function (e) {
-    e.preventDefault();
-
-    const empresa = document.getElementById("empresa").value;
-    const dataInclusao = new Date(document.getElementById("dataInclusao").value + "-01");
-    const dataUltimo = new Date(document.getElementById("dataUltimoPagamento").value + "-01");
-    const ultimaMensalidade = parseFloat(document.getElementById("valorMensal").value);
-    const meses = [];
-
-    let valorAtual = ultimaMensalidade;
-    let dt = new Date(dataUltimo);
-
-    while (dt >= dataInclusao) {
-      meses.push({ mes: new Date(dt), valorPago: valorAtual });
-      dt.setMonth(dt.getMonth() - 1);
-      valorAtual = valorAtual / 1.25; // regredindo 25% ao ano (aproximadamente 1.87% ao mês)
+    function aplicarIndiceReverso(valorFinal, indices) {
+      let valor = valorFinal;
+      let valores = [];
+      for (let i = indices.length - 1; i >= 0; i--) {
+        valor = valor / (1 + indices[i] / 100);
+        valores.unshift(valor.toFixed(2));
+      }
+      return valores;
     }
 
-    meses.reverse();
+    function gerarPDF() {
+      window.print();
+    }
 
-    let valorANS = 0;
-    let valorTotalPago = 0;
+    document.getElementById("simuladorForm").addEventListener("submit", function (e) {
+      e.preventDefault();
 
-    let valBase = meses[0].valorPago;
+      const dataInicio = new Date(document.getElementById("dataInclusao").value + "-01");
+      const dataFim = new Date(document.getElementById("dataUltimoPagamento").value + "-01");
+      const valorAtual = parseFloat(document.getElementById("valorMensalidade").value);
 
-    meses.forEach(m => {
-      const ano = m.mes.getFullYear();
-      const ans = ansIndices[ano] ?? 7; // valor médio caso ano ausente
-      valBase = valBase * (1 + (ans / 100 / 12)); // reajuste proporcional mês a mês
-      m.valorANS = valBase;
-      m.diferenca = m.valorPago - m.valorANS;
-      valorTotalPago += m.valorPago;
-      valorANS += m.valorANS;
-    });
+      let meses = [];
+      let indicesAplicados = [];
+      let datas = [];
 
-    const valorDiferenca = valorTotalPago - valorANS;
-    const mesesAnalisados = meses.length;
-    const economiaFutura = ultimaMensalidade - valBase;
+      let cursor = new Date(dataFim);
+      cursor.setDate(1);
 
-    document.getElementById("resultado").innerHTML = `
-      <p><strong>Resultado:</strong></p>
-      <p>Você pagou <strong>R$ ${valorDiferenca.toFixed(2)}</strong> a mais nos últimos <strong>${mesesAnalisados}</strong> meses.</p>
-      <p>Se continuar assim, pagará <strong>R$ ${(economiaFutura * 12).toFixed(2)}</strong> a mais nos próximos 12 meses.</p>
-    `;
+      while (cursor >= dataInicio) {
+        const anoBase = cursor.getMonth() < 9 ? cursor.getFullYear() - 1 : cursor.getFullYear();
+        const indice = indicesANS[anoBase] !== undefined ? indicesANS[anoBase] : 7.0;
+        indicesAplicados.unshift(indice);
+        datas.unshift(new Date(cursor));
+        cursor.setMonth(cursor.getMonth() - 1);
+      }
 
-    gerarGrafico(valorTotalPago, valorANS, valorDiferenca);
-  });
+      const valoresANS = aplicarIndiceReverso(valorAtual, indicesAplicados.map(i => i));
+      const valorTotalANS = valoresANS.reduce((sum, v) => sum + parseFloat(v), 0);
+      const valorTotalPago = valorAtual * valoresANS.length;
+      const valorRestituicao = valorTotalPago - valorTotalANS;
 
-  function gerarGrafico(pago, ans, diff) {
-    const ctx = document.getElementById("grafico").getContext("2d");
-    if (window.graficoChart) window.graficoChart.destroy();
-    window.graficoChart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: ["Total Pago", "Valor Devido (ANS)", "Diferença Total"],
-        datasets: [{
-          label: "Valores em R$",
-          data: [pago, ans, diff],
-          backgroundColor: ["#e74c3c", "#3498db", "#2ecc71"]
-        }]
-      },
-      options: {
-        responsive: true,
-        scales: {
-          y: {
-            beginAtZero: true
+      // Texto explicativo
+      document.getElementById("textoResumo").innerHTML = `
+        <strong>Você pagou R$ ${valorRestituicao.toFixed(2)} a mais</strong> nos últimos ${valoresANS.length} meses.<br>
+        <strong>Se continuar assim, pagará R$ ${(valorAtual * 12 - valoresANS.slice(-12).reduce((s,v)=>s+parseFloat(v), 0)).toFixed(2)} a mais nos próximos 12 meses.</strong>
+      `;
+
+      // Gráfico
+      const labels = datas.map(d => `${d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}`);
+      const real = new Array(valoresANS.length).fill(valorAtual);
+      const ans = valoresANS.map(v => parseFloat(v));
+
+      const ctx = document.getElementById("graficoComparativo").getContext("2d");
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Valor Pago",
+              data: real,
+              backgroundColor: "#6f42c1"
+            },
+            {
+              label: "Valor pela ANS",
+              data: ans,
+              backgroundColor: "#fd7e14"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: "top" }
           }
         }
-      }
+      });
+
+      // WhatsApp
+      document.getElementById("linkWhatsapp").href = `https://wa.me/?text=Você pagou R$ ${valorRestituicao.toFixed(2)} a mais no seu plano de saúde! Faça sua simulação com a Sourev.`;
+
+      document.getElementById("resultadoSimulacao").style.display = "block";
     });
-  }
-
-  function gerarPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Simulador de Reajuste Abusivo - Saúde Transparente", 10, 15);
-    doc.addImage("logo-saude.png", "PNG", 150, 5, 40, 20);
-    doc.text(document.getElementById("resultado").innerText, 10, 30);
-    doc.save("simulador-saude-transparente.pdf");
-  }
-
-  function compartilharWhatsApp() {
-    const texto = document.getElementById("resultado").innerText;
-    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
-    window.open(url, "_blank");
-  }
-</script>
+  </script>
 </body>
 </html>
-
