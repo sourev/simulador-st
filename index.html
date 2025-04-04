@@ -3,225 +3,210 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simulador de Reajuste Abusivo - Plano de Saúde</title>
+  <title>Simulador de Reajuste Abusivo - Saúde Transparente</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body {
-      font-family: 'Arial', sans-serif;
-      background-color: #f4f6fa;
-      padding: 20px;
-      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f8fc;
+      padding: 30px;
       text-align: center;
     }
-
+    img.logo {
+      max-width: 180px;
+      margin-bottom: 10px;
+    }
     h1 {
-      color: #1d3557;
-      margin-bottom: 5px;
+      color: #17385f;
+      margin: 0;
     }
-
-    h2 {
-      color: #1d3557;
-      margin-top: 0;
-    }
-
-    .container {
-      max-width: 600px;
-      margin: auto;
+    form {
+      max-width: 500px;
+      margin: 0 auto;
+      text-align: left;
       background: #fff;
-      padding: 30px;
+      padding: 20px;
       border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-
     label {
       font-weight: bold;
+      margin-top: 10px;
       display: block;
-      margin: 15px 0 5px;
-      text-align: left;
     }
-
     input, select {
       width: 100%;
       padding: 10px;
+      margin-bottom: 12px;
       border: 1px solid #ccc;
-      border-radius: 6px;
+      border-radius: 5px;
     }
-
     button {
-      margin-top: 20px;
-      padding: 12px 20px;
-      background-color: #1d3557;
-      color: white;
+      width: 100%;
+      padding: 12px;
+      background: #17385f;
+      color: #fff;
       border: none;
-      border-radius: 6px;
-      font-size: 16px;
+      border-radius: 5px;
+      font-weight: bold;
       cursor: pointer;
+      margin-top: 10px;
     }
-
-    .resultado {
+    #resultado {
       margin-top: 30px;
-      background: #e9f1fa;
+      background: #fff;
       padding: 20px;
       border-radius: 10px;
       font-size: 16px;
       text-align: left;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
     }
-
-    .grafico {
+    canvas {
+      margin-top: 30px;
       max-width: 700px;
-      margin: 40px auto;
-    }
-
-    .acoes {
-      margin-top: 20px;
-    }
-
-    .acoes button {
-      margin-right: 10px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Simulador de Reajuste Abusivo</h1>
-    <h2>Plano de Saúde</h2>
 
+  <img src="https://i.imgur.com/Hrx8FG2.png" alt="Logo Saúde Transparente" class="logo"/>
+  <h1>Simulador de Reajuste Abusivo <br>Plano de Saúde</h1>
+
+  <form onsubmit="event.preventDefault(); calcular();">
     <label>Nome da Empresa:</label>
-    <input type="text" id="empresa" placeholder="Ex: Clínica MMJ" />
+    <input type="text" id="empresa" placeholder="Ex: Clínica MMJ" required />
 
     <label>Data de Inclusão no Plano:</label>
-    <input type="month" id="dataInicio" />
+    <input type="month" id="dataInicio" required />
 
     <label>Data do Último Pagamento:</label>
-    <input type="month" id="dataFim" />
+    <input type="month" id="dataFim" required />
 
     <label>Valor da Última Mensalidade (R$):</label>
-    <input type="number" id="mensalidade" />
+    <input type="number" id="valorMensalidade" required />
 
-    <button onclick="simular()">Simular</button>
+    <button type="submit">Simular</button>
+  </form>
 
-    <div class="resultado" id="resultado"></div>
+  <div id="resultado"></div>
 
-    <div class="grafico">
-      <canvas id="graficoComparativo"></canvas>
-    </div>
+  <canvas id="graficoComparativo"></canvas>
 
-    <div class="acoes">
-      <button onclick="exportarPDF()">📤 Exportar PDF</button>
-      <button onclick="compartilharWhatsApp()">📲 WhatsApp</button>
-    </div>
-  </div>
+  <button onclick="exportarPDFComGrafico()">📤 Exportar PDF</button>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
   <script>
     const indicesANS = {
-      "2020": 0.0814,
-      "2021": -0.0819,
-      "2022": 0.1550,
-      "2023": 0.0963,
-      "2024": 0.0691
+      2020: 0.0814,
+      2021: -0.0819,
+      2022: 0.1550,
+      2023: 0.0963,
+      2024: 0.0691
     };
 
-    function simular() {
-      const empresa = document.getElementById("empresa").value;
-      const dataInicio = new Date(document.getElementById("dataInicio").value + "-01");
-      const dataFim = new Date(document.getElementById("dataFim").value + "-01");
-      const mensalidadeAtual = parseFloat(document.getElementById("mensalidade").value);
+    function calcular() {
+      const inicio = new Date(document.getElementById("dataInicio").value);
+      const fim = new Date(document.getElementById("dataFim").value);
+      const mensalidadeAtual = parseFloat(document.getElementById("valorMensalidade").value);
 
       const meses = [];
-      const pagos = [];
-      const devidos = [];
-
-      let data = new Date(dataInicio);
-      let valorPago = 2000;
-      let anoAnterior = data.getFullYear();
-
-      while (data <= dataFim) {
-        const anoAtual = data.getFullYear();
-        const keyANS = String(anoAtual);
-
-        // Reajuste real: 25% a.a
-        if (anoAtual !== anoAnterior) valorPago *= 1.25;
-
-        // Reajuste ANS
-        const reajusteANS = indicesANS[keyANS] !== undefined ? indicesANS[keyANS] : 0.10; // 10% default
-        const mesesAno = 12;
-        const fatorMensal = Math.pow(1 + reajusteANS, 1 / mesesAno);
-        let mesesPassados = (anoAtual - dataInicio.getFullYear()) * 12 + (data.getMonth() - dataInicio.getMonth());
-        let valorDevido = mensalidadeAtual / Math.pow(1.25, mesesPassados / 12);
-        valorDevido = valorDevido * Math.pow(1 + reajusteANS, mesesPassados / 12);
-
-        meses.push(data.toLocaleDateString("pt-BR", { month: "short", year: "numeric" }));
-        pagos.push(valorPago);
-        devidos.push(valorDevido);
-
-        anoAnterior = anoAtual;
-        data.setMonth(data.getMonth() + 1);
+      let atual = new Date(inicio);
+      while (atual <= fim) {
+        meses.push(new Date(atual));
+        atual.setMonth(atual.getMonth() + 1);
       }
 
-      const totalPago = pagos.reduce((a, b) => a + b, 0);
-      const totalDevido = devidos.reduce((a, b) => a + b, 0);
+      let valor = mensalidadeAtual;
+      let valorANS = mensalidadeAtual;
+      let totalPago = 0;
+      let totalDevido = 0;
+
+      // Assume reajuste de 25% por ano pelo plano
+      const percentualReajustePlano = 0.25;
+
+      for (let i = meses.length - 1; i >= 0; i--) {
+        const mesRef = meses[i];
+        const ano = mesRef.getFullYear();
+        const mes = mesRef.getMonth();
+
+        // Aplica o reajuste ANUAL do PLANO
+        if (mes === 10 && i !== meses.length - 1) { // Novembro
+          valor /= (1 + percentualReajustePlano);
+        }
+
+        // Aplica reajuste da ANS se existir
+        if (mes === 10 && indicesANS[ano]) {
+          valorANS /= (1 + indicesANS[ano]);
+        }
+
+        totalPago += valor;
+        totalDevido += valorANS;
+      }
+
       const diferenca = totalPago - totalDevido;
+      const futuro12Meses = (mensalidadeAtual - valorANS) * 12;
 
       document.getElementById("resultado").innerHTML = `
-        <strong>Resultado:</strong><br>
-        Você pagou <strong>R$ ${diferenca.toFixed(2).replace('.', ',')}</strong> a mais nos últimos <strong>${meses.length}</strong> meses.<br>
-        Se continuar assim, pagará <strong>R$ ${(diferenca / meses.length * 12).toFixed(2).replace('.', ',')}</strong> a mais nos próximos 12 meses.
+        <strong>Resultado:</strong><br/>
+        Você pagou <strong>R$ ${diferenca.toFixed(2)}</strong> a mais nos últimos <strong>${meses.length}</strong> meses.<br/>
+        Se continuar assim, pagará <strong>R$ ${futuro12Meses.toFixed(2)}</strong> a mais nos próximos 12 meses.
       `;
 
       gerarGrafico(totalPago, totalDevido, diferenca);
     }
 
-    function gerarGrafico(pago, devido, diferenca) {
+    let chart;
+
+    function gerarGrafico(pago, ans, dif) {
       const ctx = document.getElementById("graficoComparativo").getContext("2d");
-      if (window.meuGrafico) window.meuGrafico.destroy();
-      window.meuGrafico = new Chart(ctx, {
-        type: 'bar',
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: "bar",
         data: {
-          labels: ['Total Pago', 'Valor Devido (ANS)', 'Diferença Total'],
+          labels: ["Total Pago", "Valor Devido (ANS)", "Diferença Total"],
           datasets: [{
-            label: 'Valores em R$',
-            data: [pago, devido, diferenca],
-            backgroundColor: ['#e63946', '#457b9d', '#2a9d8f']
+            label: "Valores em R$",
+            data: [pago, ans, dif],
+            backgroundColor: ["#e74c3c", "#3498db", "#2ecc71"]
           }]
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: {
-              label: function(context) {
-                return 'R$ ' + context.raw.toFixed(2).replace('.', ',');
-              }
-            }}
-          },
           scales: {
             y: {
-              beginAtZero: true,
-              ticks: {
-                callback: function(value) {
-                  return 'R$ ' + value.toLocaleString('pt-BR');
-                }
-              }
+              beginAtZero: true
             }
           }
         }
       });
     }
 
-    function exportarPDF() {
+    async function exportarPDFComGrafico() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-      doc.text("Simulação de Reajuste Abusivo", 10, 10);
-      doc.text(document.getElementById("resultado").innerText, 10, 20);
-      doc.save("simulacao-reajuste.pdf");
-    }
 
-    function compartilharWhatsApp() {
-      const texto = document.getElementById("resultado").innerText;
-      const url = "https://wa.me/?text=" + encodeURIComponent(texto);
-      window.open(url, "_blank");
+      const logo = new Image();
+      logo.src = "https://i.imgur.com/Hrx8FG2.png";
+      await new Promise(resolve => logo.onload = resolve);
+      doc.addImage(logo, "PNG", 15, 10, 40, 20);
+
+      doc.setFontSize(16);
+      doc.text("Simulador de Reajuste Abusivo - Saúde Transparente", 15, 40);
+
+      const resultadoTexto = document.getElementById("resultado").innerText;
+      const linhas = doc.splitTextToSize(resultadoTexto, 180);
+      doc.setFontSize(12);
+      doc.text(linhas, 15, 50);
+
+      const canvas = document.getElementById("graficoComparativo");
+      const imgData = canvas.toDataURL("image/png");
+      doc.addImage(imgData, 'PNG', 15, 90, 180, 80);
+
+      doc.save("simulacao-saude-transparente.pdf");
     }
   </script>
+
 </body>
 </html>
