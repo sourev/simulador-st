@@ -1,205 +1,197 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simulador de Reajuste Indevido</title>
+  <meta charset="UTF-8">
+  <title>Simulador Reajuste de Plano de Saúde</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 2rem;
-      background-color: #f8f9fa;
+      margin: 30px;
+      max-width: 900px;
+      margin: auto;
+    }
+    img.logo {
+      max-width: 180px;
+      margin-bottom: 20px;
     }
     h1 {
-      text-align: center;
+      color: #1a237e;
     }
-    .container {
-      max-width: 960px;
-      margin: 0 auto;
+    input, button {
+      padding: 8px;
+      margin: 5px 0;
     }
-    label, input, select {
-      display: block;
-      margin: 0.5rem 0;
+    canvas {
+      max-width: 100%;
     }
-    .btn {
-      margin-top: 1rem;
-      padding: 10px 20px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
+    .result {
+      background-color: #f3f3f3;
+      padding: 15px;
+      margin-top: 15px;
+      border-radius: 8px;
     }
-    .btn:hover {
-      background-color: #0056b3;
-    }
-    #chartContainer {
-      margin-top: 40px;
-    }
-    #logo {
-      max-width: 200px;
-      margin: 0 auto 20px auto;
-      display: block;
-    }
-    .actions {
+    .btns {
       margin-top: 20px;
-    }
-    .actions button {
-      margin-right: 10px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <img src="logo.png" alt="Logo" id="logo"/>
-    <h1>Simulador de Reajuste Indevido de Plano de Saúde</h1>
+  <img src="logo.png" alt="Logo" class="logo">
+  <h1>Simulador de Reajuste Indevido de Plano de Saúde</h1>
 
-    <label>Data de Inclusão no Plano</label>
-    <input type="month" id="dataInicio" value="2020-11"/>
+  <label>📅 Data de Inclusão no Plano:</label><br>
+  <input type="month" id="inicio" value="2020-11"><br>
 
-    <label>Data do Último Pagamento</label>
-    <input type="month" id="dataFim" value="2025-02"/>
+  <label>📅 Data do Último Pagamento:</label><br>
+  <input type="month" id="fim" value="2025-02"><br>
 
-    <label>Valor da Última Mensalidade (R$)</label>
-    <input type="number" id="valorAtual" value="4000"/>
+  <label>💰 Valor da Última Mensalidade:</label><br>
+  <input type="number" id="valorFinal" value="4000"><br>
 
-    <button class="btn" onclick="simular()">Simular</button>
-
-    <div id="resultado" style="margin-top: 30px;"></div>
-
-    <div id="chartContainer">
-      <canvas id="grafico"></canvas>
-    </div>
-
-    <div class="actions">
-      <button class="btn" onclick="exportarPDF()">📄 Exportar PDF</button>
-      <a class="btn" style="background-color: #25D366" href="#" id="whatsappLink" target="_blank">📱 Compartilhar no WhatsApp</a>
-    </div>
+  <div class="btns">
+    <button onclick="calcular()">Simular</button>
+    <button onclick="gerarPDF()">📤 Exportar PDF</button>
+    <button onclick="compartilhar()">📲 Compartilhar WhatsApp</button>
   </div>
 
+  <div class="result" id="resultado" style="display:none;"></div>
+  <canvas id="grafico" height="100"></canvas>
+
   <script>
-    const indiceANS = {
-      2020: 0.0814,
-      2021: -0.0819,
-      2022: 0.1550,
-      2023: 0.0963,
-      2024: 0.0691
+    const indicesANS = {
+      "2024": 6.91,
+      "2023": 9.63,
+      "2022": 15.50,
+      "2021": -8.19,
+      "2020": 8.14,
+      "2019": 7.35,
+      "2018": 10.00,
+      "2017": 13.55,
+      "2016": 13.57,
+      "2015": 13.55,
+      "2014": 9.65,
+      "2013": 9.04,
+      "2012": 7.93,
+      "2011": 7.69,
+      "2010": 6.73,
+      "2009": 6.76,
+      "2008": 5.48,
+      "2007": 5.76,
+      "2006": 8.89,
+      "2005": 11.69,
+      "2004": 11.75,
+      "2003": 9.27,
+      "2002": 7.69,
+      "2001": 8.71,
+      "2000": 5.42
     };
-    const reajusteReal = 0.20; // 20%
 
-    function aplicarReajusteReverso(valorFinal, anos) {
-      let valor = valorFinal;
-      const valores = [];
-      for (let i = anos.length - 1; i >= 0; i--) {
-        const ano = anos[i];
-        if (i !== anos.length - 1) {
-          valor = valor / (1 + reajusteReal);
-        }
-        for (let m = 0; m < 12; m++) {
-          valores.unshift(parseFloat(valor.toFixed(2)));
-        }
-      }
-      return valores;
-    }
+    function calcular() {
+      const inicio = new Date(document.getElementById('inicio').value + "-01");
+      const fim = new Date(document.getElementById('fim').value + "-01");
+      const valorFinal = parseFloat(document.getElementById('valorFinal').value);
 
-    function simular() {
-      const inicio = new Date(document.getElementById("dataInicio").value + "-01");
-      const fim = new Date(document.getElementById("dataFim").value + "-01");
-      const valorAtual = parseFloat(document.getElementById("valorAtual").value);
+      let atual = new Date(fim);
+      let dados = [];
+      let valorPago = valorFinal;
 
-      const meses = [];
-      const pagos = [];
-      const ans = [];
-      const anos = [];
-
-      let atual = new Date(inicio);
-      let valorANS = 100; // base fictícia
-      const valoresANS = [];
-
-      while (atual <= fim) {
-        const mes = atual.toLocaleString("pt-BR", { month: "short", year: "numeric" });
-        meses.push(mes);
+      while (atual >= inicio) {
         const ano = atual.getFullYear();
+        const mes = atual.getMonth();
+        const key = `${ano}-${mes+1}`;
 
-        if (!anos.includes(ano)) anos.push(ano);
+        // Reajuste REAL de 20% ao ano, proporcional mensal
+        valorPago = parseFloat((valorPago / Math.pow(1.20, 1/12)).toFixed(2));
 
-        // Valor ANS
-        if (atual.getMonth() === 9 && indiceANS[ano]) {
-          valorANS *= 1 + indiceANS[ano];
+        dados.unshift({
+          mesAno: atual.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
+          ano: ano,
+          mes: mes,
+          valorPago: valorPago
+        });
+
+        atual.setMonth(atual.getMonth() - 1);
+      }
+
+      // Valor pela ANS parte do valor pago no mês de entrada
+      let valorANS = dados[0].valorPago;
+
+      dados.forEach((dado, i) => {
+        const ano = dado.ano;
+        const mes = dado.mes;
+
+        if (mes === 9 && indicesANS[ano]) { // outubro (9)
+          valorANS *= 1 + (indicesANS[ano] / 100);
+        } else if (mes === 9) {
+          valorANS *= 1 + (0.07); // fallback média 7%
         }
-        valoresANS.push(parseFloat(valorANS.toFixed(2)));
 
-        atual.setMonth(atual.getMonth() + 1);
-      }
+        dado.valorANS = parseFloat(valorANS.toFixed(2));
+        dado.diferenca = parseFloat((dado.valorPago - valorANS).toFixed(2));
+      });
 
-      // Valor pago (real) regressivo
-      const valoresPagos = aplicarReajusteReverso(valorAtual, anos);
+      const totalPago = dados.reduce((acc, cur) => acc + cur.valorPago, 0);
+      const totalANS = dados.reduce((acc, cur) => acc + cur.valorANS, 0);
+      const totalDif = totalPago - totalANS;
 
-      for (let i = 0; i < meses.length; i++) {
-        pagos.push(valoresPagos[i]);
-        ans.push(valoresANS[i]);
-      }
-
-      const diferencaTotal = pagos.reduce((acc, val, i) => acc + (val - ans[i]), 0);
-      const diferencaFutura = (valorAtual - valorANS.toFixed(2)) * 12;
-
-      document.getElementById("resultado").innerHTML = `
-        <h2>Resultado da Simulação</h2>
-        <p><strong>Você pagou R$ ${diferencaTotal.toFixed(2)} a mais</strong> nos últimos ${meses.length} meses.</p>
-        <p><strong>Se continuar assim, pagará R$ ${diferencaFutura.toFixed(2)} a mais nos próximos 12 meses.</strong></p>
+      document.getElementById('resultado').style.display = 'block';
+      document.getElementById('resultado').innerHTML = `
+        <strong>📌 Resultado:</strong><br>
+        Você pagou <b>R$ ${totalDif.toFixed(2)}</b> a mais nos últimos ${dados.length} meses.<br>
+        Se continuar assim, pagará R$ ${(totalDif / dados.length * 12).toFixed(2)} a mais nos próximos 12 meses.
       `;
 
-      gerarGrafico(meses, pagos, ans);
-      atualizarWhatsappLink(diferencaTotal, diferencaFutura);
-    }
-
-    function gerarGrafico(meses, pagos, ans) {
-      const ctx = document.getElementById("grafico").getContext("2d");
-      if (window.myChart) window.myChart.destroy();
-      window.myChart = new Chart(ctx, {
-        type: "bar",
+      const ctx = document.getElementById('grafico').getContext('2d');
+      if (window.graficoAtual) window.graficoAtual.destroy();
+      window.graficoAtual = new Chart(ctx, {
+        type: 'bar',
         data: {
-          labels: meses,
+          labels: dados.map(d => d.mesAno),
           datasets: [
             {
-              label: "Valor Pago",
-              data: pagos,
-              backgroundColor: "rgba(102, 51, 153, 0.7)",
+              label: 'Valor Pago',
+              data: dados.map(d => d.valorPago),
+              backgroundColor: '#f44336'
             },
             {
-              label: "Valor pela ANS",
-              data: ans,
-              backgroundColor: "orange",
+              label: 'Valor Pela ANS',
+              data: dados.map(d => d.valorANS),
+              backgroundColor: '#4caf50'
             }
           ]
         },
         options: {
           responsive: true,
-          scales: {
-            y: {
-              beginAtZero: true,
-            }
+          plugins: {
+            legend: { position: 'top' }
           }
         }
       });
     }
 
-    function exportarPDF() {
+    function gerarPDF() {
       const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF();
-      pdf.text("Simulação de Reajuste Indevido de Plano de Saúde", 10, 10);
-      pdf.html(document.querySelector("#resultado"), {
-        callback: function (doc) {
-          doc.save("simulacao.pdf");
+      const doc = new jsPDF();
+
+      doc.text("Simulador de Reajuste Indevido", 10, 10);
+      doc.addImage(document.querySelector('.logo'), 'PNG', 150, 5, 40, 15);
+
+      doc.html(document.getElementById('resultado'), {
+        callback: function () {
+          doc.addPage();
+          const canvas = document.querySelector('#grafico');
+          const imgData = canvas.toDataURL('image/png');
+          doc.addImage(imgData, 'PNG', 10, 20, 180, 100);
+          doc.save("simulador-plano-saude.pdf");
         }
       });
     }
 
-    function atualizarWhatsappLink(total, futuro) {
-      const texto = `Simulação de Reajuste Indevido:\n\nVocê pagou R$ ${total.toFixed(2)} a mais.\nSe continuar, pagará R$ ${futuro.toFixed(2)} nos próximos 12 meses.\n\nConfira!`;
-      const link = `https://wa.me/?text=${encodeURIComponent(texto)}`;
-      document.getElementById("whatsappLink").href = link;
+    function compartilhar() {
+      const texto = encodeURIComponent("Descubra se você está pagando mais do que deveria no seu plano de saúde: https://seusite.com/simulador");
+      window.open(`https://wa.me/?text=${texto}`, "_blank");
     }
   </script>
 </body>
