@@ -2,143 +2,221 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
+  <title>Simulador ST - Plano de Saúde</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simulador ST - Reajuste Falso Coletivo</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    label, input { display: block; margin: 10px 0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: right; }
-    th { background-color: #f0f0f0; }
-    .center { text-align: center; }
-    #chartContainer { max-width: 800px; margin-top: 30px; }
-    #logo { width: 200px; margin-bottom: 20px; }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f6f6f6;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      max-width: 950px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo img {
+      max-width: 180px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+    }
+    input {
+      padding: 10px;
+      width: 100%;
+      max-width: 300px;
+    }
+    .btns {
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 15px;
+      margin-right: 10px;
+      cursor: pointer;
+    }
+    #resultado {
+      margin-top: 30px;
+      background-color: #e9f9f1;
+      padding: 20px;
+      border-left: 6px solid #27ae60;
+    }
+    canvas {
+      margin-top: 30px;
+    }
   </style>
 </head>
 <body>
+  <div class="container" id="simulador">
+    <div class="logo">
+      <img src="logo.png" alt="Logo" />
+    </div>
+    <h1>Simulador ST - Reajuste Plano de Saúde</h1>
 
-  <img src="logo.png" alt="Logo" id="logo" />
-  <h1>Simulador Reajuste Plano de Saúde</h1>
+    <label>📅 Data de Inclusão no Plano:</label>
+    <input type="month" id="dataInicio" value="2020-11">
 
-  <label>Data de Inclusão:
-    <input type="month" id="dataInicio" value="2020-11"/>
-  </label>
-  <label>Data do Último Pagamento:
-    <input type="month" id="dataFim" value="2025-02"/>
-  </label>
-  <label>Valor da Última Mensalidade:
-    <input type="number" id="valorFinal" value="4000"/>
-  </label>
+    <label>📅 Data do Último Pagamento:</label>
+    <input type="month" id="dataFim" value="2025-02">
 
-  <button onclick="simular()">Simular</button>
-  <button onclick="exportarPDF()">Exportar PDF</button>
+    <label>💰 Valor da Última Mensalidade:</label>
+    <input type="number" id="mensalidadeFinal" value="4000" step="0.01">
 
-  <div id="resultado"></div>
-  <div id="chartContainer"><canvas id="grafico"></canvas></div>
+    <div class="btns">
+      <button onclick="simular()">Simular</button>
+      <button onclick="gerarPDF()">📄 Exportar PDF</button>
+    </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <div id="resultado"></div>
+    <canvas id="grafico"></canvas>
+  </div>
+
   <script>
     const indicesANS = {
-      2024: 0.0691, 2023: 0.0963, 2022: 0.1550, 2021: -0.0819, 2020: 0.0814,
-      2019: 0.0735, 2018: 0.10, 2017: 0.1355, 2016: 0.1357, 2015: 0.1355,
-      2014: 0.0965, 2013: 0.0904, 2012: 0.0793, 2011: 0.0769, 2010: 0.0673,
-      2009: 0.0676, 2008: 0.0548, 2007: 0.0576, 2006: 0.0889, 2005: 0.1169,
-      2004: 0.1175, 2003: 0.0927, 2002: 0.0769, 2001: 0.0871, 2000: 0.0542
+      "2024": 0.0691,
+      "2023": 0.0963,
+      "2022": 0.1550,
+      "2021": -0.0819,
+      "2020": 0.0814,
+      "2019": 0.0735,
+      "2018": 0.10,
+      "2017": 0.1355,
+      "2016": 0.1357,
+      "2015": 0.1355,
+      "2014": 0.0965,
+      "2013": 0.0904,
+      "2012": 0.07
     };
 
     function simular() {
-      const dataInicio = new Date(document.getElementById('dataInicio').value + '-01');
-      const dataFim = new Date(document.getElementById('dataFim').value + '-01');
-      const valorFinal = parseFloat(document.getElementById('valorFinal').value);
-      const meses = [];
-      let atual = new Date(dataFim);
+      const dataInicio = new Date(document.getElementById('dataInicio').value + "-01");
+      const dataFim = new Date(document.getElementById('dataFim').value + "-01");
+      const valorFinal = parseFloat(document.getElementById('mensalidadeFinal').value);
       const reajusteReal = 0.18;
 
-      while (atual >= dataInicio) {
-        meses.unshift({
-          ano: atual.getFullYear(),
-          mes: atual.getMonth(),
-          nome: atual.toLocaleDateString('pt-BR', { year: 'numeric', month: 'short' }),
-          valorPago: 0,
-          valorANS: 0
-        });
-        atual.setMonth(atual.getMonth() - 1);
+      // Cálculo valor inicial pago (regressivo)
+      let valorReal = valorFinal;
+      let temp = new Date(dataFim);
+      while (temp > dataInicio) {
+        temp.setMonth(temp.getMonth() - 12);
+        valorReal = valorReal / (1 + reajusteReal);
       }
+      let valorANS = valorReal;
 
-      // Reajuste real regressivo
-      let valor = valorFinal;
-      for (let i = meses.length - 1; i >= 0; i--) {
-        meses[i].valorPago = valor;
-        if (i > 0 && meses[i - 1].mes === 9) {
-          valor = valor / (1 + reajusteReal); // outubro
-        }
-      }
-
-      // Reajuste ANS progressivo
-      let valorANS = meses[0].valorPago;
-      for (let i = 0; i < meses.length; i++) {
-        const { ano, mes } = meses[i];
-        if (mes === 9 && i !== 0) {
-          const perc = indicesANS[ano] ?? 0.07;
-          valorANS *= (1 + perc);
-        }
-        meses[i].valorANS = valorANS;
-      }
+      const meses = [];
+      const pagos = [];
+      const devidos = [];
 
       let totalPago = 0;
-      let totalANS = 0;
-      let html = `
-        <h2>Resultados da Simulação</h2>
-        <p><strong>Você pagou a mais:</strong> R$ ${(meses.reduce((s, m) => s + (m.valorPago - m.valorANS), 0)).toFixed(2)}</p>
-        <table><tr>
-          <th>Mês</th><th>Valor Pago</th><th>Valor ANS</th><th>Diferença</th>
-        </tr>`;
+      let totalDevido = 0;
 
-      meses.forEach(m => {
-        totalPago += m.valorPago;
-        totalANS += m.valorANS;
-        html += `<tr>
-          <td class="center">${m.nome}</td>
-          <td>R$ ${m.valorPago.toFixed(2)}</td>
-          <td>R$ ${m.valorANS.toFixed(2)}</td>
-          <td>R$ ${(m.valorPago - m.valorANS).toFixed(2)}</td>
-        </tr>`;
-      });
-      html += `</table>`;
-      document.getElementById('resultado').innerHTML = html;
+      let atual = new Date(dataInicio);
+      const fim = new Date(dataFim);
+      let contadorMeses = 0;
 
-      gerarGrafico(meses);
-    }
+      while (atual <= fim) {
+        const ano = atual.getFullYear();
+        const mes = atual.getMonth();
+        const label = atual.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
 
-    function gerarGrafico(meses) {
-      const ctx = document.getElementById('grafico').getContext('2d');
-      if (window.grafico) window.grafico.destroy();
-      window.grafico = new Chart(ctx, {
+        meses.push(label);
+        pagos.push(valorReal);
+        devidos.push(valorANS);
+
+        totalPago += valorReal;
+        totalDevido += valorANS;
+
+        // Aplica reajuste real anual
+        if (contadorMeses % 12 === 11) {
+          valorReal *= (1 + reajusteReal);
+        }
+
+        // Aplica índice ANS todo mês de outubro
+        if (mes === 9) {
+          valorANS *= (1 + (indicesANS[ano] || 0.07));
+        }
+
+        atual.setMonth(atual.getMonth() + 1);
+        contadorMeses++;
+      }
+
+      const difPassado = totalPago - totalDevido;
+
+      // Projeção de 12 meses futuros
+      let mensalFutura = valorReal * (1 + reajusteReal);
+      let devidoFuturo = valorANS * (1 + (indicesANS[dataFim.getFullYear()] || 0.07));
+
+      let totalPagoFuturo = 0;
+      let totalDevidoFuturo = 0;
+
+      for (let i = 0; i < 12; i++) {
+        totalPagoFuturo += mensalFutura;
+        totalDevidoFuturo += devidoFuturo;
+        mensalFutura *= (1 + reajusteReal);
+        devidoFuturo *= (1 + (indicesANS[dataFim.getFullYear()] || 0.07));
+      }
+
+      const difFuturo = totalPagoFuturo - totalDevidoFuturo;
+
+      document.getElementById("resultado").innerHTML = `
+        <h2>Resultado da Simulação</h2>
+        <p>Você pagou <strong>R$ ${difPassado.toFixed(2)}</strong> a mais nos últimos ${contadorMeses} meses.</p>
+        <p>Se continuar assim, pagará <strong>R$ ${difFuturo.toFixed(2)}</strong> a mais nos próximos 12 meses.</p>
+      `;
+
+      const ctx = document.getElementById("grafico").getContext("2d");
+      if (window.graficoAtual) window.graficoAtual.destroy();
+
+      window.graficoAtual = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: meses.map(m => m.nome),
+          labels: meses,
           datasets: [
-            { label: 'Pago', data: meses.map(m => m.valorPago), borderColor: 'red', fill: false },
-            { label: 'ANS', data: meses.map(m => m.valorANS), borderColor: 'green', fill: false }
+            {
+              label: 'Valor Pago',
+              data: pagos,
+              borderColor: 'red',
+              backgroundColor: 'rgba(255,0,0,0.1)',
+              fill: true,
+            },
+            {
+              label: 'Valor Devido (ANS)',
+              data: devidos,
+              borderColor: 'green',
+              backgroundColor: 'rgba(0,128,0,0.1)',
+              fill: true,
+            }
           ]
         },
-        options: { responsive: true }
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: false
+            }
+          }
+        }
       });
     }
 
-    async function exportarPDF() {
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF('p', 'pt', 'a4');
-
-      pdf.addImage(document.getElementById('logo'), 'PNG', 40, 20, 150, 50);
-      pdf.text("Simulação de Reajustes", 40, 100);
-
-      const canvas = document.getElementById('grafico');
-      const imgData = canvas.toDataURL('image/png');
-      pdf.addImage(imgData, 'PNG', 40, 120, 500, 300);
-
-      pdf.save('simulacao.pdf');
+    function gerarPDF() {
+      const element = document.getElementById("simulador");
+      html2pdf().from(element).save("simulacao-plano-saude.pdf");
     }
   </script>
 </body>
