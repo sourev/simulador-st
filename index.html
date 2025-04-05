@@ -59,15 +59,24 @@
       border-radius: 5px;
       cursor: pointer;
     }
-    .botoes a {
-      display: inline-block;
-    }
   </style>
 </head>
 <body>
   <div class="container" id="conteudo">
     <img src="logo.png" alt="Logo" id="logo">
     <h1>Simulador ST – Reajuste de Plano de Saúde</h1>
+
+    <label>👤 Nome do Cliente</label>
+    <input type="text" id="nomeCliente" placeholder="Ex: João da Silva">
+
+    <label>🏥 Nome do Plano de Saúde</label>
+    <input type="text" id="nomePlano" placeholder="Ex: Bradesco Saúde">
+
+    <label>📱 WhatsApp</label>
+    <input type="text" id="whatsapp" placeholder="Ex: (11) 91234-5678">
+
+    <label>📧 E-mail</label>
+    <input type="email" id="email" placeholder="Ex: joao@email.com">
 
     <label>📅 Data de Entrada no Plano</label>
     <input type="month" id="dataEntrada" value="2020-11">
@@ -93,6 +102,11 @@
 
   <script>
     function simular() {
+      const nome = document.getElementById("nomeCliente").value;
+      const plano = document.getElementById("nomePlano").value;
+      const telefone = document.getElementById("whatsapp").value;
+      const email = document.getElementById("email").value;
+
       const entrada = new Date(document.getElementById("dataEntrada").value + "-01");
       const fim = new Date(document.getElementById("dataUltimo").value + "-01");
       const valorFinal = parseFloat(document.getElementById("valorFinal").value);
@@ -106,15 +120,9 @@
         2024: 0.0691
       };
 
-      let labels = [];
-      let valoresPagos = [];
-      let valoresANS = [];
+      let labels = [], valoresPagos = [], valoresANS = [];
+      let meses = 0, totalPago = 0, totalCorreto = 0;
 
-      let meses = 0;
-      let totalPago = 0;
-      let totalCorreto = 0;
-
-      // Valor inicial (reverso do reajuste real)
       const anosDecorridos = (fim.getFullYear() - entrada.getFullYear()) + (fim.getMonth() - entrada.getMonth()) / 12;
       let valorInicial = valorFinal / Math.pow(1 + reajusteReal, anosDecorridos);
 
@@ -131,7 +139,6 @@
         totalPago += valorPago;
         totalCorreto += valorCorreto;
 
-        // Aplica reajuste ANUAL todo mês de outubro
         if (d.getMonth() === 9) {
           let ano = d.getFullYear();
           let indiceANS = indicesANS[ano] !== undefined ? indicesANS[ano] : 0.07;
@@ -144,19 +151,21 @@
       }
 
       const diferenca = totalPago - totalCorreto;
-      const mediaMensalExcedente = diferenca / meses;
-      const futuro12 = mediaMensalExcedente * 12;
+      const futuro12 = (diferenca / meses) * 12;
 
       const texto = `
         <h2>📊 Resultado da Simulação</h2>
+        <p><strong>Cliente:</strong> ${nome}</p>
+        <p><strong>Plano de Saúde:</strong> ${plano}</p>
+        <p><strong>WhatsApp:</strong> ${telefone}</p>
+        <p><strong>E-mail:</strong> ${email}</p>
         <p>Você pagou <strong>R$ ${diferenca.toFixed(2).replace('.', ',')}</strong> a mais nos últimos ${meses} meses.</p>
         <p>Se continuar assim, pagará <strong>R$ ${futuro12.toFixed(2).replace('.', ',')}</strong> a mais nos próximos 12 meses.</p>
       `;
       document.getElementById("resultado").innerHTML = texto;
 
-      atualizarLinkWhatsApp(texto.replace(/<[^>]*>/g, ''));
+      atualizarLinkWhatsApp(`${nome} - Plano: ${plano}\n\nVocê pagou R$ ${diferenca.toFixed(2)} a mais.\nFuturo: R$ ${futuro12.toFixed(2)}.`);
 
-      // GRAFICO
       const ctx = document.getElementById("grafico").getContext("2d");
       if (window.graficoSimulacao) window.graficoSimulacao.destroy();
       window.graficoSimulacao = new Chart(ctx, {
@@ -164,27 +173,13 @@
         data: {
           labels: labels,
           datasets: [
-            {
-              label: "Valor Pago",
-              data: valoresPagos,
-              borderColor: "#dc3545",
-              fill: false
-            },
-            {
-              label: "Valor Correto (ANS)",
-              data: valoresANS,
-              borderColor: "#28a745",
-              fill: false
-            }
+            { label: "Valor Pago", data: valoresPagos, borderColor: "#dc3545", fill: false },
+            { label: "Valor Correto (ANS)", data: valoresANS, borderColor: "#28a745", fill: false }
           ]
         },
         options: {
           responsive: true,
-          scales: {
-            y: {
-              beginAtZero: false
-            }
-          }
+          scales: { y: { beginAtZero: false } }
         }
       });
     }
@@ -204,8 +199,8 @@
       });
     }
 
-    function atualizarLinkWhatsApp(texto) {
-      const link = "https://wa.me/?text=" + encodeURIComponent(texto);
+    function atualizarLinkWhatsApp(mensagem) {
+      const link = "https://wa.me/?text=" + encodeURIComponent(mensagem);
       document.getElementById("btnWhatsApp").href = link;
     }
   </script>
