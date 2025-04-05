@@ -3,242 +3,239 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simulador de Reajuste Indevido</title>
+  <title>Simulador ST</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 20px;
-      background-color: #f2f2f2;
-    }
-    h1, h2 {
-      text-align: center;
-    }
-    form {
-      background: white;
-      padding: 20px;
-      max-width: 800px;
-      margin: 0 auto;
-      border-radius: 8px;
+      margin: 40px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
     }
     label {
+      font-weight: bold;
       display: block;
       margin-top: 10px;
     }
-    input {
+    input, select {
+      padding: 5px;
       width: 100%;
-      padding: 8px;
-      margin-top: 5px;
     }
-    button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      background: #004aad;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-    }
-    #resultado {
-      background: #e9f0ff;
+    .resultado {
+      margin-top: 30px;
+      background: #f0f0f0;
       padding: 20px;
-      margin: 20px auto;
-      max-width: 800px;
       border-radius: 8px;
     }
-    canvas {
-      max-width: 100%;
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo img {
+      width: 200px;
+    }
+    #grafico {
+      max-width: 800px;
+      margin-top: 30px;
     }
   </style>
 </head>
 <body>
-  <h1>Simulador de Reajuste Indevido</h1>
-  <form id="simuladorForm">
-    <label>Nome do Cliente: <input type="text" id="nomeCliente" required></label>
-    <label>Email: <input type="email" id="email" required></label>
-    <label>WhatsApp: <input type="text" id="whatsapp" required></label>
-    <label>Nome do Plano: <input type="text" id="nomePlano" required></label>
-
-    <label>Data de Inclusão no Plano: <input type="month" id="dataInicio" required></label>
-    <label>Data do Último Pagamento: <input type="month" id="dataFim" required></label>
-    <label>Valor da Última Mensalidade (R$): <input type="number" id="valorFinal" required></label>
-
-    <button type="submit">Simular</button>
-  </form>
-
-  <div id="resultado" style="display:none;">
-    <h2>Resultado da Simulação</h2>
-    <p id="resumo"></p>
-    <canvas id="grafico"></canvas>
-    <br/>
-    <button onclick="exportarPDF()">📄 Exportar PDF</button>
-    <button onclick="compartilharWhatsApp()">📲 Compartilhar no WhatsApp</button>
+  <div class="logo">
+    <img src="logo.png" alt="Logo"/>
   </div>
 
+  <h2>Simulador de Reajuste de Plano de Saúde</h2>
+
+  <label>Nome do Cliente</label>
+  <input type="text" id="nome" />
+
+  <label>Nome do Plano</label>
+  <input type="text" id="plano" />
+
+  <label>WhatsApp</label>
+  <input type="text" id="whatsapp" />
+
+  <label>Email</label>
+  <input type="email" id="email" />
+
+  <label>Data de Inclusão no Plano</label>
+  <input type="month" id="dataInicio" />
+
+  <label>Data do Último Pagamento</label>
+  <input type="month" id="dataFim" />
+
+  <label>Valor da Última Mensalidade</label>
+  <input type="number" id="valorFinal" />
+
+  <br/><br/>
+  <button onclick="simular()">Simular</button>
+  <button onclick="exportarPDF()">Exportar PDF</button>
+
+  <div class="resultado" id="resultado"></div>
+
+  <canvas id="grafico"></canvas>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
-    const indicesANS = {
-      "2024": 6.91,
-      "2023": 9.63,
-      "2022": 15.5,
-      "2021": -8.19,
-      "2020": 8.14,
-      "2019": 7.35,
-      "2018": 10,
-      "2017": 13.55,
-      "2016": 13.57,
-      "2015": 13.55,
-      "2014": 9.65,
-      "2013": 9.04,
-      "2012": 7.93,
-      "2011": 7.69,
-      "2010": 6.73
+    const reajustesANS = {
+      "2024": 0.0691,
+      "2023": 0.0963,
+      "2022": 0.1550,
+      "2021": -0.0819,
+      "2020": 0.0814,
+      "2019": 0.0735,
+      "2018": 0.10,
+      "2017": 0.1355,
+      "2016": 0.1357,
+      "2015": 0.1355,
+      "2014": 0.0965,
+      "2013": 0.0904,
+      "2012": 0.0793,
+      "2011": 0.0769,
+      "2010": 0.0673,
+      "2009": 0.0676,
+      "2008": 0.0548,
+      "2007": 0.0576,
+      "2006": 0.0889,
+      "2005": 0.1169,
+      "2004": 0.1175,
+      "2003": 0.0927,
+      "2002": 0.0769,
+      "2001": 0.0871,
+      "2000": 0.0542,
     };
 
-    document.getElementById("simuladorForm").addEventListener("submit", function(e) {
-      e.preventDefault();
-
-      const nome = document.getElementById("nomeCliente").value;
-      const email = document.getElementById("email").value;
+    async function simular() {
+      const nome = document.getElementById("nome").value;
+      const plano = document.getElementById("plano").value;
       const whatsapp = document.getElementById("whatsapp").value;
-      const plano = document.getElementById("nomePlano").value;
-
-      const inicio = new Date(document.getElementById("dataInicio").value + "-01");
-      const fim = new Date(document.getElementById("dataFim").value + "-01");
+      const email = document.getElementById("email").value;
+      const dataInicio = document.getElementById("dataInicio").value;
+      const dataFim = document.getElementById("dataFim").value;
       const valorFinal = parseFloat(document.getElementById("valorFinal").value);
 
-      const meses = [];
-      const valorPago = [];
-      const valorANS = [];
+      const inicio = new Date(dataInicio + "-01");
+      const fim = new Date(dataFim + "-01");
+      let atual = new Date(fim);
+      let valorPago = 0;
+      let valorDevido = 0;
+      let meses = 0;
+      let valorAtual = valorFinal;
+      let valorAns = valorFinal;
 
-      let dataAtual = new Date(fim);
-      let valor = valorFinal;
+      const dadosGrafico = {
+        labels: [],
+        pagos: [],
+        ans: []
+      };
 
-      // Retroceder valores pagos
-      while (dataAtual >= inicio) {
-        const mes = dataAtual.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
-        meses.unshift(mes);
-        valorPago.unshift(parseFloat(valor.toFixed(2)));
+      while (atual >= inicio) {
+        const ano = atual.getFullYear();
+        const mes = atual.getMonth();
 
-        if (dataAtual.getMonth() === 9) { // Outubro
-          valor /= 1.22;
-        }
-        dataAtual.setMonth(dataAtual.getMonth() - 1);
-      }
+        // Grava os valores no gráfico
+        dadosGrafico.labels.unshift(atual.toLocaleDateString("pt-BR", { month: 'short', year: 'numeric' }));
+        dadosGrafico.pagos.unshift(valorAtual);
+        dadosGrafico.ans.unshift(valorAns);
 
-      // Valor inicial para ANS = valor pago na data de entrada
-      let valorInicialANS = valorPago[0];
+        valorPago += valorAtual;
+        valorDevido += valorAns;
 
-      let dataANS = new Date(inicio);
-      let valorAtualANS = valorInicialANS;
-
-      for (let i = 0; i < meses.length; i++) {
-        const mes = meses[i];
-        valorANS.push(parseFloat(valorAtualANS.toFixed(2)));
-
-        if (dataANS.getMonth() === 9) {
-          const ano = dataANS.getFullYear();
-          const reajuste = indicesANS[ano] ?? 7;
-          valorAtualANS *= (1 + reajuste / 100);
+        // Em outubro, aplica os reajustes
+        if (mes === 9) {
+          valorAtual /= 1.22; // 22% real
+          valorAns /= (1 + (reajustesANS[ano] ?? 0.07)); // ANS ou média 7%
         }
 
-        dataANS.setMonth(dataANS.getMonth() + 1);
+        atual.setMonth(atual.getMonth() - 1);
+        meses++;
       }
 
-      // Cálculo das diferenças
-      let totalPago = valorPago.reduce((a, b) => a + b, 0);
-      let totalANS = valorANS.reduce((a, b) => a + b, 0);
-      let diferenca = totalPago - totalANS;
+      const diferencaPassado = valorPago - valorDevido;
+      const estimativaFutura = (valorAtual - valorAns) * 12;
 
-      let valorProx12 = valorPago.slice(-12).reduce((a, b) => a + b, 0);
-      let valorProx12ANS = valorANS.slice(-12).reduce((a, b) => a + b, 0);
-      let difProx12 = valorProx12 - valorProx12ANS;
-
-      document.getElementById("resultado").style.display = "block";
-      document.getElementById("resumo").innerHTML = `
-        Você pagou <strong>R$ ${diferenca.toFixed(2)}</strong> a mais nos últimos <strong>${meses.length}</strong> meses.<br/>
-        Se continuar assim, pagará <strong>R$ ${difProx12.toFixed(2)}</strong> a mais nos próximos 12 meses.
+      document.getElementById("resultado").innerHTML = `
+        <h3>Resultado da Simulação</h3>
+        <p>Você pagou <b>R$ ${diferencaPassado.toFixed(2)}</b> a mais nos últimos ${meses} meses.</p>
+        <p>Se continuar assim, pagará <b>R$ ${estimativaFutura.toFixed(2)}</b> a mais nos próximos 12 meses.</p>
       `;
 
-      gerarGrafico(meses, valorPago, valorANS);
-      enviarPipeDrive(nome, email, whatsapp, plano, diferenca, difProx12, meses.length);
-    });
-
-    function gerarGrafico(labels, pago, ans) {
-      const ctx = document.getElementById("grafico").getContext("2d");
-      if (window.myChart) window.myChart.destroy();
-
-      window.myChart = new Chart(ctx, {
-        type: "line",
+      const ctx = document.getElementById('grafico').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
         data: {
-          labels: labels,
+          labels: dadosGrafico.labels,
           datasets: [
             {
-              label: "Valor Pago",
-              data: pago,
-              borderColor: "red",
+              label: 'Valor Pago',
+              data: dadosGrafico.pagos,
+              borderColor: 'red',
               fill: false
             },
             {
-              label: "Valor que deveria ser pago (ANS)",
-              data: ans,
-              borderColor: "green",
+              label: 'Valor que deveria ser pago (ANS)',
+              data: dadosGrafico.ans,
+              borderColor: 'green',
               fill: false
             }
           ]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              position: 'top',
-            }
-          }
         }
       });
+
+      enviarPipeDrive(nome, email, whatsapp, plano, diferencaPassado, estimativaFutura, meses);
     }
 
     function exportarPDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       doc.text("Resultado da Simulação", 10, 10);
-      doc.html(document.getElementById("resultado"), {
+      doc.html(document.querySelector(".resultado"), {
         callback: function (doc) {
           doc.save("simulacao.pdf");
-        },
-        x: 10,
-        y: 20
+        }
       });
     }
 
-    function compartilharWhatsApp() {
-      const nome = document.getElementById("nomeCliente").value;
-      const resumo = document.getElementById("resumo").innerText;
-      const link = `https://wa.me/?text=${encodeURIComponent("Olá, " + nome + "!\n" + resumo)}`;
-      window.open(link, "_blank");
-    }
-
     function enviarPipeDrive(nome, email, whatsapp, plano, valorA, valorB, meses) {
+      const dealData = {
+        title: `${nome} - Simulação Plano`,
+        person_name: nome,
+        value: valorA.toFixed(2),
+        stage_id: 30,
+        pipeline_id: 2
+      };
+
       fetch("https://api.pipedrive.com/v1/deals?api_token=cd9eb8d752c61cc00505aa73e12bbc1f7289b9c0", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: `${nome} - Simulação Plano`,
-          person_name: nome,
-          value: valorA.toFixed(2),
-          stage_id: 30,
-          pipeline_id: 2
-        })
+        body: JSON.stringify(dealData)
       })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           const dealId = data.data.id;
+
+          const nota = `
+📊 Simulação realizada:
+• Cliente: ${nome}
+• Plano: ${plano}
+• WhatsApp: ${whatsapp}
+• E-mail: ${email}
+• Data de Inclusão: ${document.getElementById("dataInicio").value}
+• Último Pagamento: ${document.getElementById("dataFim").value}
+• Mensalidade Atual: R$ ${document.getElementById("valorFinal").value}
+
+💰 Pagou R$ ${valorA.toFixed(2)} a mais nos últimos ${meses} meses.
+📈 Estimativa futura: R$ ${valorB.toFixed(2)}.
+          `;
+
           fetch(`https://api.pipedrive.com/v1/notes?api_token=cd9eb8d752c61cc00505aa73e12bbc1f7289b9c0`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              content: `Plano: ${plano}\nWhatsApp: ${whatsapp}\nEmail: ${email}\nResultado:\nVocê pagou R$ ${valorA.toFixed(2)} a mais nos últimos ${meses} meses.\nSe continuar assim, pagará R$ ${valorB.toFixed(2)} a mais nos próximos 12 meses.`,
+              content: nota,
               deal_id: dealId
             })
           });
@@ -248,3 +245,4 @@
   </script>
 </body>
 </html>
+
