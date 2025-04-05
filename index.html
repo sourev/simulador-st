@@ -1,264 +1,251 @@
-<!-- Versão final - Simulador ST -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simulador de Restituição</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simulador ST</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body {
-      font-family: 'Roboto', sans-serif;
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
-      background-color: #f9f9f9;
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      background-color: #f7f7f7;
     }
     h1, h2 {
       text-align: center;
     }
-    img.logo {
-      display: block;
-      margin: 0 auto 20px auto;
-      max-width: 200px;
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo img {
+      width: 150px;
+    }
+    form {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
     }
     label {
       display: block;
       margin-top: 15px;
-      font-weight: bold;
     }
     input {
       width: 100%;
-      padding: 8px;
+      padding: 10px;
       margin-top: 5px;
     }
     button {
       margin-top: 20px;
-      padding: 10px;
-      width: 100%;
+      padding: 10px 20px;
       font-size: 16px;
-      background-color: #0077cc;
+      background-color: #0066cc;
       color: white;
       border: none;
       cursor: pointer;
     }
-    #resultado {
-      margin-top: 30px;
-      padding: 15px;
-      background-color: #e1f5fe;
-      border-left: 5px solid #0288d1;
-    }
     canvas {
-      margin-top: 30px;
-      max-width: 100%;
+      max-width: 700px;
+      margin: 40px auto;
+      display: block;
     }
-    .hidden { display: none; }
+    #resultado {
+      background-color: #e3f2fd;
+      padding: 20px;
+      margin: 30px auto;
+      max-width: 700px;
+      font-weight: bold;
+      font-size: 18px;
+      text-align: center;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
 
-  <img src="logo.png" class="logo" alt="Logo" />
+<div class="logo">
+  <img src="logo.png" alt="Logo">
+</div>
 
-  <h1>Simulador de Restituição de Plano de Saúde</h1>
+<h1>Simulador ST</h1>
 
-  <label for="nome">Nome completo*</label>
-  <input id="nome" required />
+<form id="simuladorForm">
+  <label>Nome do Cliente* <input required name="nome" /></label>
+  <label>Nome do Plano* <input required name="plano" /></label>
+  <label>WhatsApp* <input required name="whatsapp" /></label>
+  <label>Email* <input type="email" required name="email" /></label>
+  <label>Data de Inclusão no Plano* <input required type="month" name="inicio" /></label>
+  <label>Data do Último Pagamento* <input required type="month" name="fim" /></label>
+  <label>Valor da Última Mensalidade* <input required type="number" name="valor" step="0.01" /></label>
+  <button type="submit">Simular</button>
+</form>
 
-  <label for="plano">Nome do Plano*</label>
-  <input id="plano" required />
+<div id="resultado"></div>
+<canvas id="grafico"></canvas>
+<div style="text-align:center;">
+  <button onclick="exportarPDF()">Exportar PDF</button>
+</div>
 
-  <label for="whatsapp">WhatsApp*</label>
-  <input id="whatsapp" required />
+<script>
+const ansIndices = {
+  2024: 6.91,
+  2023: 9.63,
+  2022: 15.50,
+  2021: -8.19,
+  2020: 8.14,
+  2019: 7.35,
+  2018: 10.00,
+  2017: 13.55,
+  2016: 13.57,
+  2015: 13.55,
+  2014: 9.65,
+  2013: 9.04,
+  2012: 7.93,
+  2011: 7.69,
+  2010: 6.73,
+  2009: 6.76,
+  2008: 5.48,
+  2007: 5.76,
+  2006: 8.89,
+  2005: 11.69,
+  2004: 11.75,
+  2003: 9.27,
+  2002: 7.69,
+  2001: 8.71,
+  2000: 5.42,
+};
 
-  <label for="email">E-mail*</label>
-  <input id="email" type="email" required />
+const REAJUSTE_REAL = 22;
 
-  <label for="entrada">Data de entrada no plano*</label>
-  <input id="entrada" type="month" required />
+document.getElementById('simuladorForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  const inicio = new Date(form.get('inicio') + '-01');
+  const fim = new Date(form.get('fim') + '-01');
+  const valorFinal = parseFloat(form.get('valor'));
 
-  <label for="ultimo">Data do último pagamento*</label>
-  <input id="ultimo" type="month" required />
+  const nome = form.get('nome');
+  const plano = form.get('plano');
+  const whatsapp = form.get('whatsapp');
+  const email = form.get('email');
 
-  <label for="valor">Valor da última mensalidade (R$)*</label>
-  <input id="valor" type="number" step="0.01" required />
+  const meses = [];
+  const pagos = [];
+  const ans = [];
 
-  <button onclick="simular()">Simular</button>
+  let atualPago = valorFinal;
+  let atualAns = atualPago;
 
-  <div id="resultado" class="hidden"></div>
-  <canvas id="grafico" class="hidden"></canvas>
+  let anoAtual = fim.getFullYear();
+  let mesAtual = fim.getMonth();
 
-  <button id="exportarBtn" class="hidden" onclick="exportarPDF()">Exportar PDF</button>
+  // Recalculando o valor ANS baseado no valor da entrada
+  let valorInicial = valorFinal;
 
-  <script>
-    const ANS = {
-      2024: 0.0691,
-      2023: 0.0963,
-      2022: 0.1550,
-      2021: -0.0819,
-      2020: 0.0814,
-      2019: 0.0735,
-      2018: 0.10,
-      2017: 0.1355,
-      2016: 0.1357,
-      2015: 0.1355,
-      2014: 0.0965,
-      2013: 0.0904,
-      2012: 0.0793,
-      2011: 0.0769,
-      2010: 0.0673,
-      2009: 0.0676,
-      2008: 0.0548,
-      2007: 0.0576,
-      2006: 0.0889,
-      2005: 0.1169,
-      2004: 0.1175,
-      2003: 0.0927,
-      2002: 0.0769,
-      2001: 0.0871,
-      2000: 0.0542
-    };
+  for (let d = new Date(inicio); d <= fim; d.setMonth(d.getMonth() + 1)) {
+    const label = d.toLocaleString('default', { month: 'short', year: 'numeric' });
 
-    function aplicarReajuste(valor, percentual) {
-      return valor / (1 + percentual);
+    // Reajuste real sempre em outubro
+    if (d.getMonth() === 9 && d < fim) {
+      atualPago /= (1 + (REAJUSTE_REAL / 100));
     }
 
-    function simular() {
-      const nome = document.getElementById('nome').value.trim();
-      const plano = document.getElementById('plano').value.trim();
-      const whatsapp = document.getElementById('whatsapp').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const entrada = document.getElementById('entrada').value;
-      const ultimo = document.getElementById('ultimo').value;
-      const valorAtual = parseFloat(document.getElementById('valor').value);
+    // Reajuste ANS sempre em outubro
+    if (d.getMonth() === 9 && d.getFullYear() in ansIndices) {
+      atualAns /= (1 + (ansIndices[d.getFullYear()] / 100));
+    }
 
-      if (!nome || !plano || !whatsapp || !email || !entrada || !ultimo || isNaN(valorAtual)) {
-        alert("Preencha todos os campos corretamente.");
-        return;
-      }
+    meses.push(label);
+    pagos.push(atualPago.toFixed(2));
+    ans.push(atualAns.toFixed(2));
+  }
 
-      const inicio = new Date(entrada + "-01");
-      const fim = new Date(ultimo + "-01");
-      let atual = new Date(fim);
-      let valor = valorAtual;
-      const pago = [];
-      const devido = [];
-      const labels = [];
+  const totalPago = pagos.reduce((a, b) => a + parseFloat(b), 0);
+  const totalAns = ans.reduce((a, b) => a + parseFloat(b), 0);
+  const diferenca = totalPago - totalAns;
 
-      let valorBaseANS = valor;
-      while (atual >= inicio) {
-        const mes = atual.toLocaleDateString('pt-BR', { year: 'numeric', month: 'short' });
-        labels.unshift(mes);
+  const projecao12Meses = diferenca / pagos.length * 12;
 
-        // VALOR PAGO
-        pago.unshift(valor);
+  document.getElementById('resultado').innerText =
+    `Resultado da Simulação
+Você pagou R$ ${diferenca.toFixed(2)} a mais nos últimos ${pagos.length} meses.
+Se continuar assim, pagará R$ ${projecao12Meses.toFixed(2)} a mais nos próximos 12 meses.`;
 
-        // VALOR DEVIDO (ANS)
-        devido.unshift(valorBaseANS);
+  // Gráfico
+  const ctx = document.getElementById('grafico').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: meses,
+      datasets: [
+        {
+          label: 'Valor Pago',
+          data: pagos,
+          borderColor: 'red',
+          fill: false,
+        },
+        {
+          label: 'Valor que deveria ser pago (ANS)',
+          data: ans,
+          borderColor: 'green',
+          fill: false,
+        },
+      ],
+    },
+  });
 
-        // Reajuste Real - Outubro
-        if (atual.getMonth() === 9) {
-          valor = aplicarReajuste(valor, 0.22);
-        }
+  // Enviar para Pipedrive
+  enviarParaPipedrive({ nome, plano, whatsapp, email, inicio, fim, valorFinal, diferenca });
+});
 
-        // Reajuste ANS - Outubro
-        if (atual.getMonth() === 9) {
-          const ano = atual.getFullYear();
-          const indice = ANS[ano] ?? 0.07;
-          valorBaseANS = aplicarReajuste(valorBaseANS, indice);
-        }
+function enviarParaPipedrive(data) {
+  const token = 'cd9eb8d752c61cc00505aa73e12bbc1f7289b9c0'; // seu token
+  const url = `https://api.pipedrive.com/v1/deals?api_token=${token}`;
+  const nota = `Simulação concluída.
 
-        atual.setMonth(atual.getMonth() - 1);
-      }
+Data de entrada: ${data.inicio.toLocaleDateString()}
+Último pagamento: ${data.fim.toLocaleDateString()}
+Valor final: R$ ${data.valorFinal.toFixed(2)}
+Diferença identificada: R$ ${data.diferenca.toFixed(2)}.`;
 
-      const totalPago = pago.reduce((a, b) => a + b, 0);
-      const totalDevido = devido.reduce((a, b) => a + b, 0);
-      const diferenca = totalPago - totalDevido;
-
-      const msg = `
-        <h2>Resultado da Simulação</h2>
-        Você pagou <strong>R$ ${diferenca.toFixed(2)}</strong> a mais nos últimos <strong>${pago.length}</strong> meses.
-        <br/>Se continuar assim, pagará <strong>R$ ${(diferenca / pago.length * 12).toFixed(2)}</strong> a mais nos próximos 12 meses.
-      `;
-
-      document.getElementById('resultado').classList.remove('hidden');
-      document.getElementById('grafico').classList.remove('hidden');
-      document.getElementById('exportarBtn').classList.remove('hidden');
-      document.getElementById('resultado').innerHTML = msg;
-
-      gerarGrafico(labels, pago, devido);
-
-      // Enviar para Pipedrive
-      fetch("https://api.pipedrive.com/v1/deals?api_token=cd9eb8d752c61cc00505aa73e12bbc1f7289b9c0", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      title: `Simulação - ${data.nome}`,
+      person_id: null,
+      pipeline_id: 3,
+      stage_id: 8,
+      value: data.valorFinal,
+      status: 'open'
+    })
+  })
+  .then(res => res.json())
+  .then(res => {
+    if (res.success) {
+      const dealId = res.data.id;
+      fetch(`https://api.pipedrive.com/v1/notes?api_token=${token}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-          title: `${nome} - Simulação ST`,
-          person_id: null,
-          value: diferenca.toFixed(2),
-          pipeline_id: 3,
-          stage_id: 8
+          content: nota,
+          deal_id: dealId
         })
-      }).then(() => {
-        // Adiciona nota com dados da simulação
-        fetch("https://api.pipedrive.com/v1/notes?api_token=cd9eb8d752c61cc00505aa73e12bbc1f7289b9c0", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: `
-              Plano: ${plano}\nWhatsApp: ${whatsapp}\nEmail: ${email}
-              Entrada: ${entrada}\nÚltimo: ${ultimo}\nMensalidade: R$ ${valorAtual}
-              Simulação: Diferença R$ ${diferenca.toFixed(2)} em ${pago.length} meses
-            `,
-            deal_id: null
-          })
-        });
       });
     }
+  });
+}
 
-    function gerarGrafico(labels, pago, devido) {
-      const ctx = document.getElementById('grafico').getContext('2d');
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Valor Pago (Plano)",
-              borderColor: "#e53935",
-              data: pago,
-              fill: false
-            },
-            {
-              label: "Valor que Deveria ser Pago (ANS)",
-              borderColor: "#43a047",
-              data: devido,
-              fill: false
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'bottom' }
-          }
-        }
-      });
-    }
+function exportarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.text(document.getElementById('resultado').innerText, 10, 10);
+  doc.save('simulacao.pdf');
+}
+</script>
 
-    function exportarPDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.text("Resultado da Simulação", 10, 10);
-      doc.html(document.body, {
-        callback: function (doc) {
-          doc.save("simulacao.pdf");
-        },
-        x: 10,
-        y: 20
-      });
-    }
-  </script>
 </body>
 </html>
